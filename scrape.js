@@ -5,6 +5,15 @@ import { load } from "cheerio";
 const OUT_DIR = path.resolve("data");
 const JSON_OUT = path.join(OUT_DIR, "items.json");
 const JS_OUT = path.join(OUT_DIR, "items.js");
+const EXPORT_DIR = path.resolve("export");
+const EXPORT_DATA_DIR = path.join(EXPORT_DIR, "data");
+const EXPORT_FILES = [
+  [".htaccess", path.join(EXPORT_DIR, ".htaccess")],
+  ["app.js", path.join(EXPORT_DIR, "app.js")],
+  ["index.html", path.join(EXPORT_DIR, "index.html")],
+  ["styles.css", path.join(EXPORT_DIR, "styles.css")],
+  [JS_OUT, path.join(EXPORT_DATA_DIR, "items.js")]
+];
 const CACHE_DIR = path.resolve("cache");
 const BASE = "https://tibia.fandom.com";
 const API = `${BASE}/api.php`;
@@ -29,7 +38,8 @@ const pages = [
   { url: `${BASE}/wiki/Shields`, slot: "shield" },
   { url: `${BASE}/wiki/Spellbooks`, slot: "shield", type: "spellbook" },
   { url: `${BASE}/wiki/Rings`, slot: "ring" },
-  { url: `${BASE}/wiki/Amulets_and_Necklaces`, slot: "amulet" }
+  { url: `${BASE}/wiki/Amulets_and_Necklaces`, slot: "amulet" },
+  { url: `${BASE}/wiki/Backpacks`, slot: "backpack", optional: true }
 ];
 
 const headerAliases = new Map([
@@ -105,11 +115,27 @@ async function main() {
   await fs.writeFile(JSON_OUT, JSON.stringify(deduped, null, 2));
   await fs.writeFile(JS_OUT, `window.TIBIA_ITEMS = ${JSON.stringify(deduped, null, 2)};\n`);
   console.log(`Wrote ${deduped.length} items to ${JSON_OUT} and ${JS_OUT}`);
+  await syncExportFiles();
+}
+
+async function syncExportFiles() {
+  await fs.mkdir(EXPORT_DATA_DIR, { recursive: true });
+  for (const [source, destination] of EXPORT_FILES) {
+    await fs.copyFile(source, destination);
+  }
+  console.log(`Synced export files to ${EXPORT_DIR}`);
 }
 
 async function fetchPageHtml(page) {
   const pageName = page.url.replace(`${BASE}/wiki/`, "");
   const cachePath = path.join(CACHE_DIR, `${pageName.replace(/[^a-z0-9_-]/gi, "_")}.html`);
+
+  try {
+    const html = await fs.readFile(cachePath, "utf8");
+    console.warn(`  Using cached copy: ${cachePath}`);
+    return html;
+  } catch {
+  }
 
   try {
     let html = await fetchViaMediaWikiApi(pageName);
@@ -137,6 +163,10 @@ async function fetchPageHtml(page) {
     console.warn(`  Using cached copy: ${cachePath}`);
     return html;
   } catch {
+    if (page.optional) {
+      console.warn(`  Skipping optional page without cached copy: ${page.url}`);
+      return "";
+    }
     throw new Error(
       `Could not fetch ${page.url}. Fandom may be blocking automated requests. ` +
       `Open the page in your browser, save it as HTML into ${cachePath}, then run npm run scrape again.`
@@ -225,6 +255,15 @@ function parsePage(html, page) {
           return;
         }
 
+        if (key === "attack") {
+          const damageParts = extractDamageParts($, cell);
+          if (damageParts.length) {
+            raw.attack = String(damageParts.reduce((sum, part) => sum + part.amount, 0));
+            raw.damageParts = damageParts;
+            return;
+          }
+        }
+
         raw[key] = text;
       });
 
@@ -243,6 +282,7 @@ function parsePage(html, page) {
         vocations: parseVocations(raw.vocations),
         armor: toNumber(raw.armor, 0),
         attack: toNumber(raw.attack, 0),
+        damageParts: raw.damageParts || [],
         defense: toNumber(raw.defense, 0),
         defenseMod: toNumber(raw.defenseMod, 0),
         hands: inferHands(raw.hands, sectionText),
@@ -370,6 +410,41 @@ function extractNameCell($, cell) {
   }
 
   return { name: cleanText($(cell).text()), wikiUrl: "" };
+}
+
+function extractDamageParts($, cell) {
+  const parts = [];
+  let pendingAmount = "";
+
+  $(cell).contents().each((_, node) => {
+    if (node.type === "text") {
+      pendingAmount += node.data || "";
+      return;
+    }
+
+    if (node.type !== "tag") return;
+
+    const title = cleanText($(node).find("a[title$=' Damage']").first().attr("title") || "");
+    if (!title) return;
+
+    const amount = parseLastSignedNumber(pendingAmount);
+    if (amount) {
+      parts.push({
+        amount,
+        type: cleanKey(title.replace(/\s+damage$/i, "")),
+        iconUrl: extractImageUrl($, node)
+      });
+    }
+    pendingAmount = "";
+  });
+
+  if (parts.length === 1 && parts[0].type === "physical") return [];
+  return parts;
+}
+
+function parseLastSignedNumber(value) {
+  const matches = String(value || "").match(/[+-]?\d+(?:\.\d+)?/g);
+  return matches ? Number(matches[matches.length - 1]) : 0;
 }
 
 function canonicalHeader(text) {

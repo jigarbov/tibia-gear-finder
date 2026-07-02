@@ -5,10 +5,40 @@ const HIDDEN_STORAGE_KEY = "tibiaGearFinder.hiddenItems.v1";
 const permanentlyHidden = loadPermanentHidden();
 let temporarilyHidden = new Set();
 
-const FULL_SET_RESULTS_PER_SLOT = 5;
-const SINGLE_SLOT_RESULTS = 15;
+const DEFAULT_RESULTS_PER_SLOT = 5;
 
 const slots = ["weapon", "shield", "ammo", "helmet", "armor", "legs", "boots", "ring", "amulet"];
+const fallbackBackpacks = [
+  {
+    id: "fallback-backpack",
+    name: "Backpack",
+    slot: "backpack",
+    imageUrl: "https://static.wikia.nocookie.net/tibia/images/4/43/Backpack.gif/revision/latest?cb=20050612153130&path-prefix=en",
+    wikiUrl: "https://tibia.fandom.com/wiki/Backpack",
+  },
+  {
+    id: "fallback-blue-backpack",
+    name: "Blue Backpack",
+    slot: "backpack",
+    imageUrl: "https://static.wikia.nocookie.net/tibia/images/9/9f/Blue_Backpack.gif/revision/latest?cb=20050612153320&path-prefix=en",
+    wikiUrl: "https://tibia.fandom.com/wiki/Blue_Backpack",
+  },
+  {
+    id: "fallback-green-backpack",
+    name: "Green Backpack",
+    slot: "backpack",
+    imageUrl: "https://static.wikia.nocookie.net/tibia/images/9/90/Green_Backpack.gif/revision/latest?cb=20050612153515&path-prefix=en",
+    wikiUrl: "https://tibia.fandom.com/wiki/Green_Backpack",
+  },
+  {
+    id: "fallback-purple-backpack",
+    name: "Purple Backpack",
+    slot: "backpack",
+    imageUrl: "https://static.wikia.nocookie.net/tibia/images/5/5b/Purple_Backpack.gif/revision/latest?cb=20050612153744&path-prefix=en",
+    wikiUrl: "https://tibia.fandom.com/wiki/Purple_Backpack",
+  },
+];
+const randomBackpack = pickRandomBackpack();
 
 const slotLabels = {
   weapon: "Weapon",
@@ -54,7 +84,23 @@ const defaultWeaponTypes = {
 const priorities = {
   balanced: {
     label: "Balanced",
-    rules: vocation => vocation === "sorcerer" || vocation === "druid"
+    rules: (vocation, slot) => slot === "armor"
+      ? [
+          ["balancedArmorScore", "desc"],
+          ["effectivePhysicalDefense", "desc"],
+          ["totalResistance", "desc"],
+          ["vocationDamageBoost", "desc"],
+          ["weight", "asc"],
+        ]
+      : slot === "shield" && vocation === "knight"
+      ? [
+          ["balancedShieldScore", "desc"],
+          ["defense", "desc"],
+          ["effectivePhysicalDefense", "desc"],
+          ["totalResistance", "desc"],
+          ["weight", "asc"],
+        ]
+      : vocation === "sorcerer" || vocation === "druid"
       ? [
           ["attributes.magicLevel", "desc"],
           ["vocationDamageBoost", "desc"],
@@ -103,6 +149,8 @@ const priorities = {
       ["attack", "desc"],
       ["hitPercent", "desc"],
       ["range", "desc"],
+      ["effectivePhysicalDefense", "desc"],
+      ["totalResistance", "desc"],
       ["weight", "asc"],
     ],
   },
@@ -222,11 +270,12 @@ const els = {
   weaponType: document.querySelector("#weaponType"),
   twoHanded: document.querySelector("#twoHanded"),
   handLabel: document.querySelector("#handLabel"),
-  itemCount: document.querySelector("#itemCount"),
+  equipmentPreview: document.querySelector("#equipmentPreview"),
   results: document.querySelector("#results"),
   resultsTitle: document.querySelector("#resultsTitle"),
+  resultLimit: document.querySelector("#resultLimit"),
+  resultLimitValue: document.querySelector("#resultLimitValue"),
   summary: document.querySelector("#summary"),
-  copyButton: document.querySelector("#copyButton"),
   hiddenPanel: document.querySelector("#hiddenPanel"),
   hiddenList: document.querySelector("#hiddenList"),
   hiddenCount: document.querySelector("#hiddenCount"),
@@ -250,7 +299,7 @@ function init() {
     render();
   });
 
-  for (const el of [els.level, els.mode, els.slot, els.priority, els.twoHanded]) {
+  for (const el of [els.level, els.mode, els.slot, els.priority, els.twoHanded, els.resultLimit]) {
     el.addEventListener("input", () => {
       temporarilyHidden = new Set();
       render();
@@ -262,7 +311,7 @@ function init() {
     temporarilyHidden = new Set();
     render();
   });
-  els.copyButton.addEventListener("click", copyResults);
+  els.equipmentPreview.addEventListener("click", handleEquipmentPreviewClick);
   els.results.addEventListener("click", handleResultClick);
   els.hiddenList.addEventListener("click", handleHiddenClick);
   els.clearHiddenButton.addEventListener("click", clearPermanentHidden);
@@ -287,6 +336,7 @@ function normalizeItems(raw) {
     armor: toNumber(item.armor, 0),
     defense: toNumber(item.defense, 0),
     defenseMod: toNumber(item.defenseMod, 0),
+    damageParts: normalizeDamageParts(item.damageParts),
     hands: item.hands || "",
     attack: toNumber(item.attack, 0),
     attackMod: toNumber(item.attackMod, 0),
@@ -315,6 +365,17 @@ function normalizeItemVocations(item) {
   if (type === "rod") return ["druid"];
   if (type === "fist") return ["monk"];
   return vocations;
+}
+
+function normalizeDamageParts(parts) {
+  if (!Array.isArray(parts)) return [];
+  return parts
+    .map(part => ({
+      amount: toNumber(part.amount, 0),
+      type: cleanKey(part.type || ""),
+      iconUrl: safeImageUrl(part.iconUrl),
+    }))
+    .filter(part => part.amount > 0 && part.type);
 }
 
 function normalizeVocations(vocations) {
@@ -364,6 +425,12 @@ function getStat(item, path, vocation) {
   if (path === "totalResistance") {
     return Object.values(item.resistances || {}).reduce((sum, value) => sum + toNumber(value, 0), 0);
   }
+  if (path === "balancedShieldScore") {
+    return getBalancedShieldScore(item, vocation);
+  }
+  if (path === "balancedArmorScore") {
+    return getBalancedArmorScore(item, vocation);
+  }
   if (path === "effectivePhysicalDefense") {
     return getEffectivePhysicalDefense(item);
   }
@@ -380,6 +447,45 @@ function getEffectivePhysicalDefense(item) {
   const baseDefense = Math.max(toNumber(item.armor, 0), toNumber(item.defense, 0));
   const physical = toNumber(item.resistances?.physical, 0);
   return baseDefense + physical;
+}
+
+function getBalancedShieldScore(item, vocation) {
+  const physicalDefense = getEffectivePhysicalDefense(item);
+  const totalResistance = Object.values(item.resistances || {}).reduce((sum, value) => sum + toNumber(value, 0), 0);
+  const vocationBoost = getVocationDamageBoost(item, vocation);
+  const shielding = toNumber(item.attributes?.shielding, 0);
+  const weight = toNumber(item.weight, 0);
+
+  return physicalDefense
+    + totalResistance * 0.6
+    + vocationBoost * 4
+    + shielding * 2
+    - weight / 25;
+}
+
+function getBalancedArmorScore(item, vocation) {
+  const physicalDefense = getEffectivePhysicalDefense(item);
+  const totalResistance = Object.values(item.resistances || {}).reduce((sum, value) => sum + toNumber(value, 0), 0);
+  const vocationBoost = getVocationDamageBoost(item, vocation);
+  const shielding = toNumber(item.attributes?.shielding, 0);
+  const weight = toNumber(item.weight, 0);
+
+  if (vocation === "knight") {
+    const physicalResistance = toNumber(item.resistances?.physical, 0);
+    const elementalResistance = totalResistance - physicalResistance;
+    return physicalDefense * 2
+      + physicalResistance * 0.5
+      + elementalResistance * 0.25
+      + vocationBoost * 4
+      + shielding * 2
+      - weight / 50;
+  }
+
+  return physicalDefense
+    + totalResistance * 0.6
+    + vocationBoost * 4
+    + shielding * 2
+    - weight / 25;
 }
 
 
@@ -476,13 +582,14 @@ function renderWeaponTypeOptions(resetIfIrrelevant = false) {
   els.weaponType.value = [...relevant, "any", ...other].includes(selected) ? selected : (defaultWeaponTypes[vocation] || "any");
 }
 
-function getRules(priorityKey, vocation) {
+function getRules(priorityKey, vocation, slot) {
   const rawRules = priorities[priorityKey]?.rules || priorities.balanced.rules;
-  return typeof rawRules === "function" ? rawRules(vocation) : rawRules;
+  return typeof rawRules === "function" ? rawRules(vocation, slot) : rawRules;
 }
 
 function rankItems(sourceItems, priorityKey, vocation) {
-  const rules = getRules(priorityKey, vocation);
+  const slot = sourceItems[0]?.slot || "";
+  const rules = getRules(priorityKey, vocation, slot);
   return [...sourceItems].sort((a, b) => {
     for (const [stat, direction] of rules) {
       const av = toNumber(getStat(a, stat, vocation), 0);
@@ -525,28 +632,108 @@ function render() {
   const priorityKey = els.priority.value;
   const vocation = els.vocation.value;
   const level = toNumber(els.level.value, 0);
-  els.itemCount.textContent = items.length.toLocaleString();
+  const resultLimit = getSelectedResultLimit();
+  els.resultLimitValue.textContent = String(resultLimit);
+  renderEquipmentPreview(priorityKey);
   renderHiddenItems();
   els.slotLabel.style.display = mode === "full" ? "none" : "grid";
 
   if (mode === "full") {
     els.resultsTitle.textContent = `Best full set`;
     els.summary.textContent = `${titleCase(vocation)}, level ${level}, prioritising ${priorities[priorityKey].label.toLowerCase()}.`;
-    renderFullSet(priorityKey);
+    renderFullSet(priorityKey, resultLimit);
   } else {
     const slot = els.slot.value;
     els.resultsTitle.textContent = `Best ${slotLabels[slot].toLowerCase()}`;
     els.summary.textContent = `${titleCase(vocation)}, level ${level}, prioritising ${priorities[priorityKey].label.toLowerCase()}.`;
     const filtered = getFiltered(slot);
-    const { ranked, hasPriorityMatch } = getRankedForSlot(filtered, priorityKey, SINGLE_SLOT_RESULTS);
+    const { ranked, hasPriorityMatch } = getRankedForSlot(filtered, priorityKey, resultLimit);
     els.results.innerHTML = renderSlot(slot, ranked, false, priorityKey, hasPriorityMatch);
   }
 }
 
-function renderFullSet(priorityKey) {
+function getSelectedResultLimit() {
+  return Math.min(5, Math.max(1, toNumber(els.resultLimit?.value, DEFAULT_RESULTS_PER_SLOT)));
+}
+
+function renderEquipmentPreview(priorityKey) {
+  if (!els.equipmentPreview) return;
+  const equipment = getPreviewEquipment(priorityKey);
+  if (randomBackpack) equipment.backpack = randomBackpack;
+  const cells = [
+    { key: "amulet", slot: "amulet", label: "Amulet" },
+    { key: "helmet", slot: "helmet", label: "Helmet" },
+    { key: "backpack", slot: "backpack", label: "Backpack" },
+    { key: "weapon", slot: "weapon", label: "Weapon" },
+    { key: "armor", slot: "armor", label: "Armor" },
+    { key: "shield", slot: "shield", label: "Off-hand" },
+    { key: "ring", slot: "ring", label: "Ring" },
+    { key: "legs", slot: "legs", label: "Legs" },
+    { key: "ammo", slot: "ammo", label: "Ammo" },
+    { key: "empty-left", slot: "", label: "" },
+    { key: "boots", slot: "boots", label: "Boots" },
+    { key: "empty-right", slot: "", label: "" },
+  ];
+
+  els.equipmentPreview.innerHTML = cells.map(cell => {
+    const item = equipment[cell.slot];
+    const imageUrl = item ? safeImageUrl(item.imageUrl) : "";
+    const label = item ? item.name : cell.label;
+    const content = imageUrl
+      ? `<img src="${escapeAttr(imageUrl)}" alt="${escapeAttr(item.name)}" loading="lazy" referrerpolicy="no-referrer">`
+      : `<span>${cell.slot ? escapeHtml(cell.label.slice(0, 2)) : ""}</span>`;
+    if (!cell.slot || cell.slot === "backpack") {
+      return `<div class="equipment-slot equipment-${cell.key}" title="${escapeAttr(label)}">${content}</div>`;
+    }
+    return `<button class="equipment-slot equipment-${cell.key}" type="button" data-slot="${escapeAttr(cell.slot)}" title="${escapeAttr(label)}">${content}</button>`;
+  }).join("");
+}
+
+function handleEquipmentPreviewClick(event) {
+  const button = event.target.closest("[data-slot]");
+  if (!button || !els.equipmentPreview.contains(button)) return;
+
+  const slot = button.dataset.slot;
+  let target = document.getElementById(getSlotSectionId(slot));
+  if (!target && els.slot.value !== slot) {
+    els.mode.value = "single";
+    els.slot.value = slot;
+    render();
+    target = document.getElementById(getSlotSectionId(slot));
+  }
+
+  target?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function getPreviewEquipment(priorityKey) {
+  const previewSlots = ["amulet", "helmet", "ammo", "weapon", "armor", "shield", "ring", "legs", "boots"];
+  const equipment = {};
+  for (const slot of previewSlots) {
+    if (!shouldShowPreviewSlot(slot)) continue;
+    const filtered = getFiltered(slot);
+    const { ranked } = getRankedForSlot(filtered, priorityKey, 1);
+    if (ranked[0]) equipment[slot] = ranked[0];
+  }
+  return equipment;
+}
+
+function pickRandomBackpack() {
+  const backpacks = items.filter(item => item.slot === "backpack" && safeImageUrl(item.imageUrl));
+  const source = backpacks.length ? backpacks : fallbackBackpacks;
+  return source[Math.floor(Math.random() * source.length)] || null;
+}
+
+function shouldShowPreviewSlot(slot) {
+  const weaponType = getSelectedWeaponType();
+  if (slot === "ammo") return weaponType === "bow" || weaponType === "crossbow";
+  if (slot === "shield") return getSelectedHandMode() !== "2";
+  return true;
+}
+
+function renderFullSet(priorityKey, resultLimit) {
   const groups = getFullSetSlots().map(slot => {
     const filtered = getFiltered(slot);
-    const { ranked, hasPriorityMatch } = getRankedForSlot(filtered, priorityKey, FULL_SET_RESULTS_PER_SLOT);
+    const { ranked, hasPriorityMatch } = getRankedForSlot(filtered, priorityKey, resultLimit);
     return renderSlot(slot, ranked, true, priorityKey, hasPriorityMatch);
   });
   els.results.innerHTML = groups.join("");
@@ -562,7 +749,7 @@ function getFullSetSlots() {
     slots.push("shield");
   }
 
-  slots.push("helmet", "armor", "legs", "boots");
+  slots.push("amulet", "helmet", "armor", "legs", "boots", "ring");
   return slots;
 }
 
@@ -573,21 +760,28 @@ function getRankedForSlot(sourceItems, priorityKey, limit) {
   const priorityMatches = priorityIsAlwaysUseful ? sourceItems : sourceItems.filter(item => checker(item, vocation));
 
   if (priorityMatches.length > 0) {
+    const priorityRanked = rankItems(priorityMatches, priorityKey, vocation).slice(0, limit);
+    const selectedIds = new Set(priorityRanked.map(item => item.id));
+    const balancedFill = rankItems(sourceItems, "balanced", vocation)
+      .filter(item => !selectedIds.has(item.id))
+      .slice(0, Math.max(0, limit - priorityRanked.length));
+
     return {
-      ranked: rankItems(priorityMatches, priorityKey, vocation).slice(0, limit),
+      ranked: [...priorityRanked, ...balancedFill],
       hasPriorityMatch: true,
     };
   }
 
   return {
-    ranked: rankItems(sourceItems, "balanced", vocation).slice(0, limit === FULL_SET_RESULTS_PER_SLOT ? Math.max(0, FULL_SET_RESULTS_PER_SLOT - 1) : limit),
+    ranked: rankItems(sourceItems, "balanced", vocation).slice(0, Math.max(0, limit - 1)),
     hasPriorityMatch: false,
   };
 }
 
 function renderSlot(slot, ranked, compact, priorityKey, hasPriorityMatch) {
+  const sectionId = getSlotSectionId(slot);
   if (ranked.length === 0 && hasPriorityMatch) {
-    return `<article class="slot-group"><div class="slot-title"><h3>${slotLabels[slot]}</h3></div><p class="empty">No usable ${slotLabels[slot].toLowerCase()} found for these filters.</p></article>`;
+    return `<article id="${sectionId}" class="slot-group"><div class="slot-title"><h3>${slotLabels[slot]}</h3></div><p class="empty">No usable ${slotLabels[slot].toLowerCase()} found for these filters.</p></article>`;
   }
 
   const unavailableCard = hasPriorityMatch
@@ -595,12 +789,15 @@ function renderSlot(slot, ranked, compact, priorityKey, hasPriorityMatch) {
     : renderUnavailablePriorityCard(slot, priorityKey, compact);
 
   if (ranked.length === 0) {
-    return `<article class="slot-group"><div class="slot-title"><h3>${slotLabels[slot]}</h3></div><div class="card-grid">${unavailableCard}</div></article>`;
+    return `<article id="${sectionId}" class="slot-group"><div class="slot-title"><h3>${slotLabels[slot]}</h3></div><div class="card-grid">${unavailableCard}</div></article>`;
   }
 
   const cards = ranked.map((item, index) => renderItemCard(item, hasPriorityMatch ? index : index + 1, compact)).join("");
-  const shownCount = ranked.length + (hasPriorityMatch ? 0 : 1);
-  return `<article class="slot-group"><div class="slot-title"><h3>${slotLabels[slot]}</h3><span class="pill">${shownCount} shown</span></div><div class="card-grid">${unavailableCard}${cards}</div></article>`;
+  return `<article id="${sectionId}" class="slot-group"><div class="slot-title"><h3>${slotLabels[slot]}</h3></div><div class="card-grid">${unavailableCard}${cards}</div></article>`;
+}
+
+function getSlotSectionId(slot) {
+  return `results-${cleanKey(slot)}`;
 }
 
 function renderUnavailablePriorityCard(slot, priorityKey, compact) {
@@ -633,7 +830,7 @@ function renderItemCard(item, index, compact) {
   return `
     <article class="item-card ${index === 0 ? "best" : ""}">
       <div class="item-card-head">${image}<div><h3>${index === 0 ? "★ " : ""}${escapeHtml(item.name)}</h3><div class="meta">${escapeHtml(meta)}</div></div></div>
-      <div class="stats">${stats.map(s => `<span class="pill">${escapeHtml(s)}</span>`).join("")}</div>
+      <div class="stats">${stats.map(renderStatPill).join("")}</div>
       ${compact ? "" : `<p class="reason">${escapeHtml(reason)}</p>`}
       <div class="card-actions">
         ${wikiUrl ? `<a href="${escapeAttr(wikiUrl)}" target="_blank" rel="noopener noreferrer">Open wiki page</a>` : ""}
@@ -643,17 +840,22 @@ function renderItemCard(item, index, compact) {
     </article>`;
 }
 
+function renderStatPill(stat) {
+  if (typeof stat === "string") return `<span class="pill">${escapeHtml(stat)}</span>`;
+  const icon = stat.iconUrl
+    ? `<img class="stat-icon" src="${escapeAttr(stat.iconUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+    : "";
+  return `<span class="pill stat-pill">${icon}${escapeHtml(stat.text || "")}</span>`;
+}
+
 function buildStats(item) {
   const out = [];
+  if (item.slot === "weapon") addAttackStats(out, item);
   if (item.armor) out.push(`Arm ${item.armor}`);
   if (item.defense) out.push(`Def ${item.defense}`);
   if (item.defenseMod) out.push(`Def mod ${fmtSigned(item.defenseMod)}`);
   if (item.hands) out.push(`${item.hands} hand${String(item.hands) === "1" ? "" : "s"}`);
-  const effectivePhysicalDefense = getEffectivePhysicalDefense(item);
-  const baseDefense = Math.max(toNumber(item.armor, 0), toNumber(item.defense, 0));
-  if (effectivePhysicalDefense && effectivePhysicalDefense !== baseDefense) out.push(`Phys score ${effectivePhysicalDefense}`);
-  if (item.attack) out.push(`Atk ${item.attack}`);
-  if (item.attackMod) out.push(`Atk mod ${fmtSigned(item.attackMod)}`);
+  if (item.slot !== "weapon") addAttackStats(out, item);
   if (item.range) out.push(`Range ${item.range}`);
   if (item.hitPercent) out.push(`Hit ${fmtSigned(item.hitPercent)}%`);
   if (item.shotDamageAverage) out.push(`Damage ${item.damageMin}-${item.damageMax}`);
@@ -670,6 +872,17 @@ function buildStats(item) {
     if (n) out.push(`${prettyStat(key)} ${fmtSigned(n)}%`);
   }
   return out.length ? out : ["No parsed stats"];
+}
+
+function addAttackStats(out, item) {
+  if (item.attack) out.push(`Atk ${item.attack}`);
+  for (const part of item.damageParts || []) {
+    out.push({
+      text: `${prettyStat(part.type)} ${part.amount}`,
+      iconUrl: part.iconUrl,
+    });
+  }
+  if (item.attackMod) out.push(`Atk mod ${fmtSigned(item.attackMod)}`);
 }
 
 function buildReason(item) {
@@ -815,11 +1028,4 @@ function renderHiddenItems() {
         <button class="secondary-button" type="button" data-action="unhide" data-id="${escapeAttr(item.id)}">Unhide</button>
       </div>`;
   }).join("");
-}
-
-async function copyResults() {
-  const text = [...document.querySelectorAll(".slot-group")].map(group => group.innerText.trim()).join("\n\n");
-  await navigator.clipboard.writeText(text);
-  els.copyButton.textContent = "Copied";
-  setTimeout(() => els.copyButton.textContent = "Copy results", 1100);
 }

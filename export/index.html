@@ -3,80 +3,84 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https://static.wikia.nocookie.net data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests">
   <meta name="referrer" content="no-referrer">
   <title>Tibia Gear Finder</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20260702-6">
 </head>
 <body>
   <main class="shell">
-    <header class="hero">
-      <div>
-        <p class="eyebrow">Local Tibia equipment helper</p>
+    <div class="top-grid">
+      <header class="hero">
+        <p class="eyebrow"><a href="https://www.tibia.com/community/?name=Hitogedgy" target="_blank" rel="noopener noreferrer">Hitogedgy</a>'s super awesome equipment helper</p>
         <h1>Tibia Gear Finder</h1>
         <p class="intro">Pick your vocation, level, slot and priority. The app filters what you can wear and explains why each item ranks well.</p>
-      </div>
-      <div class="status-card">
-        <span id="itemCount">0</span>
-        <small>items loaded</small>
-      </div>
-    </header>
+      </header>
 
-    <section class="panel controls" aria-label="Search controls">
-      <label>
-        Vocation
-        <select id="vocation">
-          <option value="knight">Knight</option>
-          <option value="paladin" selected>Paladin</option>
-          <option value="sorcerer">Sorcerer</option>
-          <option value="druid">Druid</option>
-          <option value="monk">Monk</option>
-        </select>
-      </label>
+      <section class="panel controls" aria-label="Search controls">
+        <label class="vocation-label">
+          Vocation
+          <select id="vocation">
+            <option value="knight" selected>Knight</option>
+            <option value="paladin">Paladin</option>
+            <option value="sorcerer">Sorcerer</option>
+            <option value="druid">Druid</option>
+            <option value="monk">Monk</option>
+          </select>
+        </label>
 
-      <label>
-        Level
-        <input id="level" type="number" min="0" value="50">
-      </label>
+        <label class="level-label">
+          Level
+          <input id="level" type="number" min="0" value="500">
+        </label>
 
-      <label>
-        Mode
-        <select id="mode">
-          <option value="single">Single slot</option>
-          <option value="full">Full equipment set</option>
-        </select>
-      </label>
+        <label>
+          Mode
+          <select id="mode">
+            <option value="single">Single slot</option>
+            <option value="full" selected>Full equipment set</option>
+          </select>
+        </label>
 
-      <label id="slotLabel">
-        Slot
-        <select id="slot"></select>
-      </label>
+        <label id="slotLabel" class="slot-label">
+          Slot
+          <select id="slot"></select>
+        </label>
 
-      <label>
-        Priority
-        <select id="priority"></select>
-      </label>
+        <label>
+          Priority
+          <select id="priority"></select>
+        </label>
 
-      <label>
-        Weapon type
-        <select id="weaponType"></select>
-      </label>
+        <label>
+          Weapon type
+          <select id="weaponType"></select>
+        </label>
 
-      <label id="handLabel" class="checkbox-label">
-        Weapon hands
-        <span class="toggle-row">
-          <input id="twoHanded" type="checkbox">
-          <span>Two-handed</span>
-        </span>
-      </label>
-    </section>
+        <label id="handLabel" class="checkbox-label">
+          Weapon hands
+          <span class="toggle-row">
+            <input id="twoHanded" type="checkbox">
+            <span>Two-handed</span>
+          </span>
+        </label>
+      </section>
+
+      <aside class="equipment-card" aria-label="Equipment preview">
+        <div id="equipmentPreview" class="equipment-preview"></div>
+      </aside>
+    </div>
 
     <section class="results-head">
       <div>
-        <h2 id="resultsTitle">Best items</h2>
+        <div class="results-title-row">
+          <h2 id="resultsTitle">Best items</h2>
+          <label class="result-limit-label">
+            <span>Show <strong id="resultLimitValue">5</strong></span>
+            <input id="resultLimit" type="range" min="1" max="5" value="5">
+          </label>
+        </div>
         <p id="summary"></p>
       </div>
-      <button id="copyButton" type="button">Copy results</button>
     </section>
 
     <section id="results" class="results" aria-live="polite"></section>
@@ -93,7 +97,7 @@
     </section>
   </main>
 
-  <script src="data/items.js"></script>
-  <script src="app.js"></script>
+  <script src="data/items.js?v=20260702-6"></script>
+  <script src="app.js?v=20260702-6"></script>
 </body>
 </html>
