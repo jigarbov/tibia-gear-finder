@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https://static.wikia.nocookie.net data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests">
+  <meta name="referrer" content="no-referrer">
+  <title>Tibia Gear Finder</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Local Tibia equipment helper</p>
+        <h1>Tibia Gear Finder</h1>
+        <p class="intro">Pick your vocation, level, slot and priority. The app filters what you can wear and explains why each item ranks well.</p>
+      </div>
+      <div class="status-card">
+        <span id="itemCount">0</span>
+        <small>items loaded</small>
+      </div>
+    </header>
+
+    <section class="panel controls" aria-label="Search controls">
+      <label>
+        Vocation
+        <select id="vocation">
+          <option value="knight">Knight</option>
+          <option value="paladin" selected>Paladin</option>
+          <option value="sorcerer">Sorcerer</option>
+          <option value="druid">Druid</option>
+          <option value="monk">Monk</option>
+        </select>
+      </label>
+
+      <label>
+        Level
+        <input id="level" type="number" min="0" value="50">
+      </label>
+
+      <label>
+        Mode
+        <select id="mode">
+          <option value="single">Single slot</option>
+          <option value="full">Full equipment set</option>
+        </select>
+      </label>
+
+      <label id="slotLabel">
+        Slot
+        <select id="slot"></select>
+      </label>
+
+      <label>
+        Priority
+        <select id="priority"></select>
+      </label>
+
+      <label>
+        Weapon type
+        <select id="weaponType"></select>
+      </label>
+
+      <label id="handLabel" class="checkbox-label">
+        Weapon hands
+        <span class="toggle-row">
+          <input id="twoHanded" type="checkbox">
+          <span>Two-handed</span>
+        </span>
+      </label>
+    </section>
+
+    <section class="results-head">
+      <div>
+        <h2 id="resultsTitle">Best items</h2>
+        <p id="summary"></p>
+      </div>
+      <button id="copyButton" type="button">Copy results</button>
+    </section>
+
+    <section id="results" class="results" aria-live="polite"></section>
+
+    <section id="hiddenPanel" class="panel hidden-panel" aria-label="Hidden items">
+      <div class="hidden-head">
+        <div>
+          <h2>Hidden items</h2>
+          <p><span id="hiddenCount">0</span> permanently hidden items. Temporary hides reset whenever you change the search above.</p>
+        </div>
+        <button id="clearHiddenButton" class="secondary-button" type="button">Unhide all</button>
+      </div>
+      <div id="hiddenList" class="hidden-list"></div>
+    </section>
+  </main>
+
+  <script src="data/items.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

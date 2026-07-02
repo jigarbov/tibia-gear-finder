@@ -1,0 +1,16 @@
+{
+  "name": "tibia-gear-finder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "scrape": "node scrape.js",
+    "serve": "npx http-server . -p 8080"
+  },
+  "dependencies": {
+    "cheerio": "1.0.0"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}
