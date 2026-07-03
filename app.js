@@ -4,8 +4,17 @@ let items = normalizeItems(RAW_ITEMS);
 const HIDDEN_STORAGE_KEY = "tibiaGearFinder.hiddenItems.v1";
 const permanentlyHidden = loadPermanentHidden();
 let temporarilyHidden = new Set();
+let selectedEquipment = {};
 
 const DEFAULT_RESULTS_PER_SLOT = 5;
+const damageTypeIcons = {
+  physical: "https://static.wikia.nocookie.net/tibia/images/3/37/Physical_Damage_Icon.gif/revision/latest?cb=20210531030930&path-prefix=en",
+  fire: "https://static.wikia.nocookie.net/tibia/images/7/7a/Fire_Damage_Icon.gif/revision/latest?cb=20210531161622&path-prefix=en",
+  ice: "https://static.wikia.nocookie.net/tibia/images/8/88/Freezing_Icon.gif/revision/latest?cb=20171122235520&path-prefix=en",
+  energy: "https://static.wikia.nocookie.net/tibia/images/3/30/Electrified_Icon.gif/revision/latest?cb=20171122235453&path-prefix=en",
+  earth: "https://static.wikia.nocookie.net/tibia/images/5/5e/Poisoned_Icon.gif/revision/latest?cb=20171123000012&path-prefix=en",
+  death: "https://static.wikia.nocookie.net/tibia/images/9/9c/Cursed_Icon.gif/revision/latest?cb=20171122234722&path-prefix=en",
+};
 
 const slots = ["weapon", "shield", "ammo", "helmet", "armor", "legs", "boots", "ring", "amulet"];
 const fallbackBackpacks = [
@@ -280,6 +289,7 @@ const els = {
   twoHanded: document.querySelector("#twoHanded"),
   handLabel: document.querySelector("#handLabel"),
   equipmentPreview: document.querySelector("#equipmentPreview"),
+  equipmentSummary: document.querySelector("#equipmentSummary"),
   results: document.querySelector("#results"),
   resultsTitle: document.querySelector("#resultsTitle"),
   resultLimit: document.querySelector("#resultLimit"),
@@ -704,6 +714,7 @@ function getSelectedResultLimit() {
 function renderEquipmentPreview(priorityKey) {
   if (!els.equipmentPreview) return;
   const equipment = getPreviewEquipment(priorityKey);
+  renderEquipmentSummary(equipment);
   if (randomBackpack) equipment.backpack = randomBackpack;
   const cells = [
     { key: "amulet", slot: "amulet", label: "Amulet" },
@@ -727,11 +738,171 @@ function renderEquipmentPreview(priorityKey) {
     const content = imageUrl
       ? `<img src="${escapeAttr(imageUrl)}" alt="${escapeAttr(item.name)}" loading="lazy" referrerpolicy="no-referrer">`
       : `<span>${cell.slot ? escapeHtml(cell.label.slice(0, 2)) : ""}</span>`;
+    const hoverCard = item && cell.slot !== "backpack"
+      ? renderEquipmentHoverCard(item)
+      : "";
     if (!cell.slot || cell.slot === "backpack") {
-      return `<div class="equipment-slot equipment-${cell.key}" title="${escapeAttr(label)}">${content}</div>`;
+      return `<div class="equipment-slot equipment-${cell.key}" aria-label="${escapeAttr(label)}">${content}</div>`;
     }
-    return `<button class="equipment-slot equipment-${cell.key}" type="button" data-slot="${escapeAttr(cell.slot)}" title="${escapeAttr(label)}">${content}</button>`;
+    const selectedClass = selectedEquipment[cell.slot] === item?.id ? " selected-equipment" : "";
+    return `<button class="equipment-slot equipment-${cell.key}${selectedClass}" type="button" data-slot="${escapeAttr(cell.slot)}" aria-label="${escapeAttr(label)}">${content}${hoverCard}</button>`;
   }).join("");
+}
+
+function renderEquipmentHoverCard(item) {
+  const stats = buildStats(item);
+  const reason = buildReason(item);
+  const imageUrl = safeImageUrl(item.imageUrl);
+  const meta = [
+    item.type ? titleCase(item.type) : titleCase(item.slot),
+    `Level ${item.level || "none"}`,
+    item.vocations.length ? item.vocations.map(titleCase).join(", ") : "Any vocation",
+  ].join(" • ");
+  const image = imageUrl
+    ? `<img class="item-image" src="${escapeAttr(imageUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+    : `<div class="item-image placeholder" aria-hidden="true">?</div>`;
+
+  return `
+    <span class="equipment-hover-card" role="tooltip">
+      <span class="item-card-head">${image}<span><strong>${escapeHtml(item.name)}</strong><span class="meta">${escapeHtml(meta)}</span></span></span>
+      <span class="stats">${stats.map(renderStatPill).join("")}</span>
+      <span class="reason">${escapeHtml(reason)}</span>
+    </span>`;
+}
+
+function renderEquipmentSummary(equipment) {
+  if (!els.equipmentSummary) return;
+  const totals = getEquipmentTotals(equipment);
+  const pills = buildEquipmentSummaryPills(totals);
+  els.equipmentSummary.innerHTML = pills.length
+    ? pills.map(renderSummaryPill).join("")
+    : `<span class="summary-empty">No totals</span>`;
+}
+
+function getEquipmentTotals(equipment) {
+  const totals = {
+    armor: 0,
+    defense: 0,
+    attackParts: {},
+    imbuementSlots: 0,
+    attributes: {},
+    resistances: {},
+  };
+
+  for (const item of Object.values(equipment || {})) {
+    if (!item) continue;
+    totals.armor += toNumber(item.armor, 0);
+    addEquipmentAttackTotal(totals, item);
+    totals.imbuementSlots += toNumber(item.imbuementSlots, 0);
+
+    for (const [key, value] of Object.entries(item.attributes || {})) {
+      totals.attributes[key] = (totals.attributes[key] || 0) + toNumber(value, 0);
+    }
+    for (const [key, value] of Object.entries(item.resistances || {})) {
+      const n = toNumber(value, 0);
+      if (n) {
+        if (!totals.resistances[key]) totals.resistances[key] = [];
+        totals.resistances[key].push(n);
+      }
+    }
+  }
+
+  totals.defense = getEquipmentDefense(equipment);
+  return totals;
+}
+
+function addEquipmentAttackTotal(totals, item) {
+  if (Array.isArray(item.damageParts) && item.damageParts.length) {
+    for (const part of item.damageParts) {
+      const type = part.type || "physical";
+      totals.attackParts[type] = (totals.attackParts[type] || 0) + toNumber(part.amount, 0);
+    }
+    return;
+  }
+
+  const attack = toNumber(item.attack, 0);
+  if (!attack) return;
+  const type = item.damageType || "physical";
+  totals.attackParts[type] = (totals.attackParts[type] || 0) + attack;
+}
+
+function getEquipmentDefense(equipment) {
+  const weapon = equipment?.weapon;
+  const offHand = equipment?.shield;
+  const weaponDefenseMod = toNumber(weapon?.defenseMod, 0);
+
+  if (offHand) {
+    return toNumber(offHand.defense, 0)
+      + toNumber(offHand.defenseMod, 0)
+      + weaponDefenseMod;
+  }
+
+  return toNumber(weapon?.defense, 0) + weaponDefenseMod;
+}
+
+function buildEquipmentSummaryPills(totals) {
+  const pills = [];
+  const add = (label, value, suffix = "") => {
+    const n = toNumber(value, 0);
+    if (n) pills.push(`${label} ${fmtSigned(n)}${suffix}`);
+  };
+  const addResistance = key => {
+    const effective = getStackedResistance(totals.resistances[key]);
+    if (effective) {
+      pills.push({
+        text: `${prettyStat(key)} ${fmtSignedDecimal(effective)}%`,
+        iconUrl: damageTypeIcons[key],
+      });
+    }
+  };
+  const addPlain = (label, value) => {
+    const n = toNumber(value, 0);
+    if (n) pills.push(`${label} ${n}`);
+  };
+
+  for (const key of ["physical", "fire", "ice", "energy", "earth", "holy", "death"]) {
+    const attack = toNumber(totals.attackParts[key], 0);
+    if (attack) {
+      pills.push({
+        text: `${prettyStat(key)} Atk ${attack}`,
+        iconUrl: damageTypeIcons[key],
+      });
+    }
+  }
+  addPlain("Arm", totals.armor);
+  addPlain("Def", totals.defense);
+  addPlain("Imbues", totals.imbuementSlots);
+
+  for (const key of ["distance", "magicLevel", "fist", "sword", "axe", "club", "shielding", "speed"]) {
+    add(prettyStat(key), totals.attributes[key]);
+  }
+
+  for (const key of ["physical", "fire", "ice", "energy", "earth", "holy", "death", "drown", "lifedrain", "manadrain"]) {
+    addResistance(key);
+  }
+
+  return pills;
+}
+
+function getStackedResistance(values) {
+  if (!Array.isArray(values) || values.length === 0) return 0;
+  const damageTaken = values.reduce((remaining, value) => remaining * (1 - toNumber(value, 0) / 100), 1);
+  return (1 - damageTaken) * 100;
+}
+
+function fmtSignedDecimal(value) {
+  const n = Math.abs(value) < 0.05 ? 0 : value;
+  const rounded = Math.round(n * 10) / 10;
+  const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  return rounded > 0 ? `+${text}` : text;
+}
+
+function renderSummaryPill(pill) {
+  if (typeof pill === "string") return `<span class="summary-pill">${escapeHtml(pill)}</span>`;
+  const icon = pill.iconUrl
+    ? `<img class="summary-icon" src="${escapeAttr(pill.iconUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+    : "";
+  return `<span class="summary-pill">${icon}${escapeHtml(pill.text || "")}</span>`;
 }
 
 function handleEquipmentPreviewClick(event) {
@@ -756,6 +927,11 @@ function getPreviewEquipment(priorityKey) {
   for (const slot of previewSlots) {
     if (!shouldShowPreviewSlot(slot)) continue;
     const filtered = getFiltered(slot);
+    const selected = filtered.find(item => item.id === selectedEquipment[slot]);
+    if (selected) {
+      equipment[slot] = selected;
+      continue;
+    }
     const { ranked } = getRankedForSlot(filtered, priorityKey, 1);
     if (ranked[0]) equipment[slot] = ranked[0];
   }
@@ -866,6 +1042,7 @@ function renderItemCard(item, index, compact) {
   const reason = buildReason(item);
   const imageUrl = safeImageUrl(item.imageUrl);
   const wikiUrl = safeWikiUrl(item.wikiUrl);
+  const isSelected = selectedEquipment[item.slot] === item.id;
   const meta = [
     item.type ? titleCase(item.type) : titleCase(item.slot),
     `Level ${item.level || "none"}`,
@@ -873,7 +1050,7 @@ function renderItemCard(item, index, compact) {
   ].join(" • ");
   const image = imageUrl ? `<img class="item-image" src="${escapeAttr(imageUrl)}" alt="${escapeAttr(item.name)}" loading="lazy" referrerpolicy="no-referrer">` : `<div class="item-image placeholder" aria-hidden="true">?</div>`;
   return `
-    <article class="item-card ${index === 0 ? "best" : ""}">
+    <article class="item-card ${index === 0 ? "best" : ""} ${isSelected ? "selected" : ""}" data-item-id="${escapeAttr(item.id)}">
       <div class="item-card-head">${image}<div><h3>${index === 0 ? "★ " : ""}${escapeHtml(item.name)}</h3><div class="meta">${escapeHtml(meta)}</div></div></div>
       <div class="stats">${stats.map(renderStatPill).join("")}</div>
       ${compact ? "" : `<p class="reason">${escapeHtml(reason)}</p>`}
@@ -904,7 +1081,7 @@ function buildStats(item) {
   if (item.range) out.push(`Range ${item.range}`);
   if (item.hitPercent) out.push(`Hit ${fmtSigned(item.hitPercent)}%`);
   if (item.shotDamageAverage) out.push(`Damage ${item.damageMin}-${item.damageMax}`);
-  if (item.damageType) out.push(titleCase(item.damageType));
+  if (item.damageType && !item.attack && !(item.damageParts || []).length) out.push(titleCase(item.damageType));
   if (item.manaPerShot) out.push(`Mana ${item.manaPerShot}`);
   if (item.imbuementSlots) out.push(`${item.imbuementSlots} imbue slot${item.imbuementSlots === 1 ? "" : "s"}`);
   if (item.weight) out.push(`Weight ${item.weight}`);
@@ -921,12 +1098,22 @@ function buildStats(item) {
 }
 
 function addAttackStats(out, item) {
-  if (item.attack) out.push(`Atk ${item.attack}`);
-  for (const part of item.damageParts || []) {
-    out.push({
-      text: `${prettyStat(part.type)} ${part.amount}`,
-      iconUrl: part.iconUrl,
-    });
+  if (Array.isArray(item.damageParts) && item.damageParts.length) {
+    for (const part of item.damageParts) {
+      out.push({
+        text: `${prettyStat(part.type)} Atk ${part.amount}`,
+        iconUrl: part.iconUrl || damageTypeIcons[part.type],
+      });
+    }
+  } else if (item.attack) {
+    if (item.damageType) {
+      out.push({
+        text: `${prettyStat(item.damageType)} Atk ${item.attack}`,
+        iconUrl: damageTypeIcons[item.damageType],
+      });
+    } else {
+      out.push(`Atk ${item.attack}`);
+    }
   }
   if (item.attackMod) out.push(`Atk mod ${fmtSigned(item.attackMod)}`);
 }
@@ -958,7 +1145,7 @@ function fmtSigned(value) {
 }
 
 function prettyStat(key) {
-  const labels = { magicLevel: "Magic level", lifeDrain: "Life drain", manaDrain: "Mana drain" };
+  const labels = { magicLevel: "Magic level", lifeDrain: "Life drain", manaDrain: "Mana drain", lifedrain: "Life drain", manadrain: "Mana drain" };
   return labels[key] || String(key).replace(/([A-Z])/g, " $1").replace(/^./, c => c.toUpperCase());
 }
 
@@ -1011,7 +1198,16 @@ function savePermanentHidden() {
 
 function handleResultClick(event) {
   const button = event.target.closest("button[data-action]");
-  if (!button) return;
+  if (!button) {
+    if (event.target.closest("a")) return;
+    const card = event.target.closest(".item-card[data-item-id]");
+    if (!card || !els.results.contains(card)) return;
+    const item = items.find(candidate => candidate.id === card.dataset.itemId);
+    if (!item) return;
+    selectedEquipment[item.slot] = item.id;
+    render();
+    return;
+  }
 
   const id = button.dataset.id;
   if (!id) return;

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
   <title>Tibia Gear Finder</title>
-  <link rel="stylesheet" href="styles.css?v=20260702-6">
+  <link rel="stylesheet" href="styles.css?v=20260703-5">
 </head>
 <body>
   <main class="shell">
@@ -33,7 +33,7 @@
           <input id="level" type="number" min="0" value="500">
         </label>
 
-        <label>
+        <label class="mode-label">
           Mode
           <select id="mode">
             <option value="single">Single slot</option>
@@ -46,12 +46,12 @@
           <select id="slot"></select>
         </label>
 
-        <label>
+        <label class="priority-label">
           Priority
           <select id="priority"></select>
         </label>
 
-        <label>
+        <label class="weapon-type-label">
           Weapon type
           <select id="weaponType"></select>
         </label>
@@ -67,6 +67,7 @@
 
       <aside class="equipment-card" aria-label="Equipment preview">
         <div id="equipmentPreview" class="equipment-preview"></div>
+        <div id="equipmentSummary" class="equipment-summary" aria-label="Equipment stat totals"></div>
       </aside>
     </div>
 
@@ -97,7 +98,7 @@
     </section>
   </main>
 
-  <script src="data/items.js?v=20260702-6"></script>
-  <script src="app.js?v=20260702-6"></script>
+  <script src="data/items.js?v=20260703-1"></script>
+  <script src="app.js?v=20260703-6"></script>
 </body>
 </html>

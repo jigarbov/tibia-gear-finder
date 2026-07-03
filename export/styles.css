@@ -31,7 +31,7 @@ body {
   grid-template-areas:
     "hero equipment"
     "controls equipment";
-  gap: 16px;
+  gap: 14px;
   align-items: stretch;
   margin-bottom: 16px;
 }
@@ -58,15 +58,17 @@ h3 { font-size: 16px; margin-bottom: 4px; }
 
 .equipment-card {
   grid-area: equipment;
-  width: 188px;
+  width: 360px;
   border: 1px solid var(--line);
   background: linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.025));
   border-radius: 12px;
   padding: 10px;
   text-align: center;
   align-self: stretch;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 .equipment-preview {
   display: grid;
@@ -89,12 +91,57 @@ h3 { font-size: 16px; margin-bottom: 4px; }
 }
 button.equipment-slot {
   cursor: pointer;
+  position: relative;
+  overflow: visible;
 }
 button.equipment-slot:hover,
 button.equipment-slot:focus-visible {
   border-color: rgba(218,169,79,.75);
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.34), 0 0 0 2px rgba(218,169,79,.2);
   outline: none;
+}
+.equipment-slot.selected-equipment {
+  border-color: rgba(125,190,255,.85);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.34), 0 0 0 2px rgba(125,190,255,.22);
+}
+.equipment-hover-card {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  z-index: 20;
+  display: none;
+  width: 280px;
+  max-width: min(280px, calc(100vw - 28px));
+  transform: translateX(-50%);
+  padding: 12px;
+  text-align: left;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #172032;
+  box-shadow: 0 18px 44px rgba(0,0,0,.46);
+  pointer-events: none;
+}
+button.equipment-slot:hover .equipment-hover-card,
+button.equipment-slot:focus-visible .equipment-hover-card {
+  display: block;
+}
+.equipment-hover-card .item-card-head {
+  display: grid;
+}
+.equipment-hover-card .item-card-head > span {
+  display: block;
+  min-width: 0;
+}
+.equipment-hover-card strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 14px;
+  line-height: 1.2;
+}
+.equipment-hover-card .meta,
+.equipment-hover-card .reason {
+  display: block;
 }
 .equipment-slot img {
   width: 40px;
@@ -112,38 +159,95 @@ button.equipment-slot:focus-visible {
 .equipment-empty-right {
   visibility: hidden;
 }
+.equipment-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-content: center;
+  gap: 5px;
+  flex: 1 1 150px;
+  min-width: 0;
+}
+.summary-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba(255,255,255,.13);
+  background: rgba(255,255,255,.07);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1;
+  padding: 5px 7px;
+  white-space: nowrap;
+}
+.summary-icon {
+  width: 12px;
+  height: 12px;
+  image-rendering: pixelated;
+  object-fit: contain;
+}
+.summary-empty {
+  color: rgba(244,247,251,.38);
+  font-size: 11px;
+  font-weight: 800;
+}
 
 .panel {
   border: 1px solid var(--line);
   background: rgba(23,32,50,.88);
-  border-radius: 16px;
-  padding: 14px;
+  border-radius: 14px;
+  padding: 12px;
   margin-bottom: 14px;
   box-shadow: 0 14px 38px rgba(0,0,0,.18);
 }
 
 .controls {
   grid-area: controls;
-  display: grid;
-  grid-template-columns: minmax(112px, .8fr) 78px minmax(126px, .95fr) minmax(104px, .72fr) minmax(128px, .9fr) minmax(126px, .9fr) minmax(122px, .78fr);
-  gap: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px 12px;
+  align-items: end;
+  justify-self: start;
+  width: fit-content;
+  max-width: 100%;
 }
 
 .level-label {
-  width: 78px;
+  width: auto;
+  flex-basis: 96px;
 }
 
 .vocation-label {
-  max-width: 140px;
+  max-width: none;
+  flex-basis: 180px;
 }
 
 .slot-label {
-  max-width: 118px;
+  max-width: none;
+  flex-basis: 116px;
+}
+.mode-label { flex-basis: 190px; }
+.priority-label { flex-basis: 168px; }
+.weapon-type-label { flex-basis: 150px; }
+.checkbox-label { flex-basis: 150px; }
+.controls::after {
+  content: "";
+  flex-basis: 100%;
+  order: 1;
+}
+.mode-label,
+.slot-label,
+.priority-label,
+.weapon-type-label,
+.checkbox-label {
+  order: 2;
 }
 
 label {
   display: grid;
-  gap: 6px;
+  gap: 5px;
   color: var(--muted);
   font-weight: 700;
   font-size: 12px;
@@ -155,7 +259,7 @@ select, input, button {
   border: 1px solid var(--line);
   background: var(--panel-2);
   color: var(--text);
-  min-height: 36px;
+  min-height: 34px;
   padding: 0 9px;
   width: 100%;
 }
@@ -259,7 +363,14 @@ code {
   border-radius: 12px;
   padding: 12px;
 }
+.item-card[data-item-id] {
+  cursor: pointer;
+}
 .item-card.best { outline: 2px solid rgba(225,184,105,.45); }
+.item-card.selected {
+  border-color: rgba(125,190,255,.78);
+  box-shadow: 0 0 0 2px rgba(125,190,255,.18);
+}
 .meta {
   color: var(--muted);
   font-size: 12px;
@@ -294,7 +405,7 @@ code {
 a { color: var(--accent); text-decoration: none; font-weight: 800; }
 .empty { color: var(--danger); }
 
-@media (max-width: 920px) {
+@media (max-width: 1080px) {
   .top-grid {
     grid-template-columns: 1fr;
     grid-template-areas:
@@ -303,20 +414,52 @@ a { color: var(--accent); text-decoration: none; font-weight: 800; }
       "controls";
   }
   .equipment-card {
-    width: min(100%, 188px);
+    width: min(100%, 360px);
     justify-self: start;
+    flex-wrap: wrap;
   }
+  .equipment-summary { justify-content: center; }
   .hero, .utilities, .results-head { grid-template-columns: 1fr; display: grid; }
-  .controls { grid-template-columns: repeat(2, 1fr); }
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-areas:
+      "vocation level"
+      "mode slot"
+      "priority weapon"
+      "hand hand";
+    width: 100%;
+  }
   .level-label,
   .vocation-label,
   .slot-label {
     width: auto;
     max-width: none;
+    flex-basis: auto;
   }
+  .vocation-label { grid-area: vocation; }
+  .level-label { grid-area: level; }
+  .mode-label { grid-area: mode; }
+  .slot-label { grid-area: slot; }
+  .priority-label { grid-area: priority; }
+  .weapon-type-label { grid-area: weapon; }
+  .checkbox-label { grid-area: hand; }
+  .controls::after { display: none; }
 }
 @media (max-width: 560px) {
-  .controls { grid-template-columns: 1fr; }
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "vocation"
+      "level"
+      "mode"
+      "slot"
+      "priority"
+      "weapon"
+      "hand";
+    width: 100%;
+  }
 }
 
 .card-actions {
@@ -355,7 +498,7 @@ a { color: var(--accent); text-decoration: none; font-weight: 800; }
 .hidden-head {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
   align-items: center;
 }
 .hidden-head p,
@@ -437,7 +580,7 @@ a { color: var(--accent); text-decoration: none; font-weight: 800; }
   display: flex;
   align-items: center;
   gap: 7px;
-  min-height: 36px;
+  min-height: 34px;
   padding: 0 9px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -465,5 +608,5 @@ a { color: var(--accent); text-decoration: none; font-weight: 800; }
 .card-actions .icon-button { margin-left: 0; }
 
 @media (min-width: 1200px) {
-  .controls { grid-template-columns: minmax(112px, .8fr) 78px minmax(126px, .95fr) minmax(104px, .72fr) minmax(128px, .9fr) minmax(126px, .9fr) minmax(122px, .78fr); }
+  .checkbox-label .toggle-row { width: max-content; min-width: 138px; }
 }
