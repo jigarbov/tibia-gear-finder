@@ -73,8 +73,10 @@ const headerAliases = new Map([
   ["damage", "damage"],
   ["damage-per-shot", "damage"],
   ["damage-shot", "damage"],
+  ["bond", "damageType"],
   ["element", "damageType"],
   ["elemental", "damageType"],
+  ["dmg-type", "damageType"],
   ["damage-type", "damageType"],
   ["mana", "manaPerShot"],
   ["mana-per-shot", "manaPerShot"],
@@ -246,7 +248,7 @@ function parsePage(html, page) {
         const text = cleanText($(cell).text());
         const imageUrl = extractImageUrl($, cell);
         if (imageUrl && !raw.imageUrl) raw.imageUrl = imageUrl;
-        if (!text && key !== "name") return;
+        if (!text && key !== "name" && key !== "damageType") return;
 
         if (key === "name") {
           const nameData = extractNameCell($, cell);
@@ -264,7 +266,7 @@ function parsePage(html, page) {
           }
         }
 
-        raw[key] = text;
+        raw[key] = key === "damageType" ? extractDamageType($, cell, text) : text;
       });
 
       const name = cleanName(raw.name);
@@ -290,7 +292,7 @@ function parsePage(html, page) {
         range: toNumber(raw.range, 0),
         hitPercent: toNumber(raw.hitPercent, 0),
         ammoType: page.slot === "ammo" ? inferAmmoType(name, sectionText) : "",
-        damageType: cleanText(raw.damageType),
+        damageType: cleanKey(raw.damageType),
         damageMin: damage.min,
         damageMax: damage.max,
         shotDamageAverage: damage.average,
@@ -440,6 +442,15 @@ function extractDamageParts($, cell) {
 
   if (parts.length === 1 && parts[0].type === "physical") return [];
   return parts;
+}
+
+function extractDamageType($, cell, fallback = "") {
+  const title = cleanText(
+    $(cell).find("a[title$=' Damage']").first().attr("title") ||
+    $(cell).find("img[alt$=' Damage']").first().attr("alt") ||
+    fallback
+  );
+  return title.replace(/\s+damage$/i, "");
 }
 
 function parseLastSignedNumber(value) {

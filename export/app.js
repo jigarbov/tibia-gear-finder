@@ -92,6 +92,15 @@ const priorities = {
           ["vocationDamageBoost", "desc"],
           ["weight", "asc"],
         ]
+      : slot === "helmet"
+      ? [
+          ["vocationDamageBoost", "desc"],
+          ["balancedWearableScore", "desc"],
+          ["attributes.magicLevel", "desc"],
+          ["effectivePhysicalDefense", "desc"],
+          ["totalResistance", "desc"],
+          ["weight", "asc"],
+        ]
       : slot === "shield" && vocation === "knight"
       ? [
           ["balancedShieldScore", "desc"],
@@ -348,6 +357,7 @@ function normalizeItems(raw) {
     shotDamageAverage: toNumber(item.shotDamageAverage, 0),
     manaPerShot: toNumber(item.manaPerShot, 0),
     weight: toNumber(item.weight, 0),
+    imbuementSlots: toNumber(item.imbuementSlots, 0),
     attributes: item.attributes || {},
     resistances: item.resistances || {},
     wikiUrl: item.wikiUrl || "",
@@ -431,6 +441,9 @@ function getStat(item, path, vocation) {
   if (path === "balancedArmorScore") {
     return getBalancedArmorScore(item, vocation);
   }
+  if (path === "balancedWearableScore") {
+    return getBalancedWearableScore(item, vocation);
+  }
   if (path === "effectivePhysicalDefense") {
     return getEffectivePhysicalDefense(item);
   }
@@ -463,10 +476,27 @@ function getBalancedShieldScore(item, vocation) {
     - weight / 25;
 }
 
+function getBalancedWearableScore(item, vocation) {
+  const physicalDefense = getEffectivePhysicalDefense(item);
+  const totalResistance = Object.values(item.resistances || {}).reduce((sum, value) => sum + toNumber(value, 0), 0);
+  const vocationBoost = getVocationDamageBoost(item, vocation);
+  const secondaryBoost = getSecondaryGearBoost(item, vocation);
+  const shielding = toNumber(item.attributes?.shielding, 0);
+  const weight = toNumber(item.weight, 0);
+
+  return physicalDefense
+    + totalResistance * 0.6
+    + vocationBoost * 4
+    + secondaryBoost
+    + shielding * 2
+    - weight / 25;
+}
+
 function getBalancedArmorScore(item, vocation) {
   const physicalDefense = getEffectivePhysicalDefense(item);
   const totalResistance = Object.values(item.resistances || {}).reduce((sum, value) => sum + toNumber(value, 0), 0);
   const vocationBoost = getVocationDamageBoost(item, vocation);
+  const secondaryBoost = getSecondaryGearBoost(item, vocation);
   const shielding = toNumber(item.attributes?.shielding, 0);
   const weight = toNumber(item.weight, 0);
 
@@ -477,6 +507,7 @@ function getBalancedArmorScore(item, vocation) {
       + physicalResistance * 0.5
       + elementalResistance * 0.25
       + vocationBoost * 4
+      + secondaryBoost
       + shielding * 2
       - weight / 50;
   }
@@ -484,8 +515,21 @@ function getBalancedArmorScore(item, vocation) {
   return physicalDefense
     + totalResistance * 0.6
     + vocationBoost * 4
+    + secondaryBoost
     + shielding * 2
     - weight / 25;
+}
+
+function getSecondaryGearBoost(item, vocation) {
+  const attrs = item.attributes || {};
+  const imbuementSlots = toNumber(item.imbuementSlots, 0);
+  let score = imbuementSlots * 2;
+
+  if (vocation === "paladin" || vocation === "monk") {
+    score += toNumber(attrs.magicLevel, 0) * 2;
+  }
+
+  return score;
 }
 
 
@@ -514,6 +558,7 @@ function getVocationDamageBoost(item, vocation) {
   if (selectedMatchesItem && ["sword", "axe", "club", "fist", "throwing", "bow", "crossbow"].includes(item.type)) {
     score += toNumber(item.attack, 0) / 20;
     score += toNumber(item.attackMod, 0);
+    score += toNumber(item.imbuementSlots, 0) * 0.15;
   }
 
   return score;
@@ -861,6 +906,7 @@ function buildStats(item) {
   if (item.shotDamageAverage) out.push(`Damage ${item.damageMin}-${item.damageMax}`);
   if (item.damageType) out.push(titleCase(item.damageType));
   if (item.manaPerShot) out.push(`Mana ${item.manaPerShot}`);
+  if (item.imbuementSlots) out.push(`${item.imbuementSlots} imbue slot${item.imbuementSlots === 1 ? "" : "s"}`);
   if (item.weight) out.push(`Weight ${item.weight}`);
 
   for (const [key, value] of Object.entries(item.attributes || {})) {
@@ -889,6 +935,7 @@ function buildReason(item) {
   const bits = [];
   if (item.range) bits.push(`range ${item.range}`);
   if (item.attackMod) bits.push(`attack modifier ${fmtSigned(item.attackMod)}`);
+  if (item.damageType) bits.push(`${titleCase(item.damageType)} damage`);
   if (item.armor) bits.push(`armor ${item.armor}`);
   if (item.defense) bits.push(`defence ${item.defense}`);
   const effectivePhysicalDefense = getEffectivePhysicalDefense(item);
@@ -898,6 +945,7 @@ function buildReason(item) {
   if (item.attributes?.magicLevel) bits.push(`magic level ${fmtSigned(item.attributes.magicLevel)}`);
   if (item.attributes?.fist) bits.push(`fist fighting ${fmtSigned(item.attributes.fist)}`);
   if (item.attributes?.speed) bits.push(`speed ${fmtSigned(item.attributes.speed)}`);
+  if (item.imbuementSlots) bits.push(`${item.imbuementSlots} imbuement slot${item.imbuementSlots === 1 ? "" : "s"}`);
   if (item.shotDamageAverage) bits.push(`wand/rod damage ${item.damageMin}-${item.damageMax}`);
   if (item.resistances?.physical) bits.push(`physical resistance ${fmtSigned(item.resistances.physical)}%`);
   if (item.weight) bits.push(`weight ${item.weight}`);
