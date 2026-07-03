@@ -482,7 +482,7 @@ a { color: var(--accent); text-decoration: none; font-weight: 800; }
       "limit limit"
       "mode slot"
       "priority weapon"
-      "hand hand";
+      "hand drops";
     width: 100%;
   }
   .level-label,
@@ -499,7 +499,8 @@ a { color: var(--accent); text-decoration: none; font-weight: 800; }
   .slot-label { grid-area: slot; }
   .priority-label { grid-area: priority; }
   .weapon-type-label { grid-area: weapon; }
-  .checkbox-label { grid-area: hand; }
+  #handLabel { grid-area: hand; }
+  .show-drops-label { grid-area: drops; }
   .controls::after { display: none; }
 }
 @media (max-width: 560px) {
@@ -514,7 +515,8 @@ a { color: var(--accent); text-decoration: none; font-weight: 800; }
       "slot"
       "priority"
       "weapon"
-      "hand";
+      "hand"
+      "drops";
     width: 100%;
   }
 }

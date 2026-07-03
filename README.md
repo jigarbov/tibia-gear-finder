@@ -58,7 +58,8 @@ weapon type matches, if the slot is Weapon
 Then it sorts by the selected priority, for example:
 
 - Range: range, attack modifier, hit chance, lower weight
-- Damage / attack: attack modifier, attack, hit chance, range, distance skill, lower weight
+- Attack: vocation-relevant attack boosts, total attack, wand/rod damage, attack modifier, hit chance, range, lower weight
+- Elemental attack: the selected attack type first, then vocation-relevant skill modifiers, total attack and combat tie-breakers
 - Armor: armor, total resistance, lower weight
 - Lightest: lower weight, then armor/damage tie-breakers
 
@@ -115,6 +116,7 @@ Each result card has two hide buttons:
 
 - **Hide for this search** removes the item from the current results only. These temporary hides reset whenever you change vocation, level, mode, slot, priority, or weapon type.
 - **Hide permanently** saves the item in your browser's local storage and keeps it hidden across refreshes and future searches.
+- **Show drops** controls whether result cards show drop sources. The equipment preview hover still shows drop sources.
 
 The **Hidden items** section at the bottom of the page lists permanently hidden items. Use **Unhide** on one item or **Unhide all** to bring them back.
 
@@ -127,13 +129,15 @@ The **Hidden items** section at the bottom of the page lists permanently hidden 
 
 ## Priority fallback behaviour
 
-If you choose a priority that does not make sense for a slot, the app now shows a placeholder card such as `No valid damage / attack legs`. The remaining recommendations for that slot fall back to the balanced formula instead of quietly sorting by a weak tie-breaker like weight.
+If you choose a priority that does not make sense for a slot, the app now shows a placeholder card such as `No valid fire attack legs`. The remaining recommendations for that slot fall back to the balanced formula instead of quietly sorting by a weak tie-breaker like weight.
 
 Examples:
 
-- Damage / attack on legs: only shows a valid priority result if the item has actual attack-style stats.
+- Attack on legs: only shows a valid priority result if the item has actual attack-style stats.
 - Distance skill on armor/legs/helmets: only shows priority results if the item boosts distance.
-- Fire/ice/energy resistance: only shows priority results if the item has that resistance.
+- Elemental attack priorities: show items with that specific attack type or vocation-relevant skill modifiers that boost the selected weapon style.
+- Resistance priorities: only show priority results if the item has that specific resistance.
+- Balanced and general resistance sorting only count physical, fire, ice, energy, earth, holy and death. Niche resistances such as drown, life drain and mana drain only matter when you pick that exact priority.
 - Balanced and Lightest always apply.
 
 ## Recent smart ranking/display updates
@@ -141,12 +145,12 @@ Examples:
 - Full equipment set mode now shows five recommendations per slot instead of three.
 - The layout widens on desktop/monitor screens while staying compact on mobile.
 - Scraped item images are saved as `imageUrl` and displayed on item cards.
-- Damage / attack now treats vocation-relevant skill boosts as damage boosts:
+- Attack now treats vocation-relevant skill boosts as attack boosts:
   - Paladin: distance fighting
   - Sorcerer/Druid: magic level
   - Knight: sword/axe/club fighting
   - Monk: fist fighting
-- Wand and rod damage ranges are parsed when the wiki table exposes a damage column, and are used by Damage / attack ranking.
+- Wand and rod damage ranges are parsed when the wiki table exposes a damage column, and are used by Attack ranking.
 - Added scraper entries and weapon-type filters for fist fighting weapons and throwing weapons.
 
 ## Latest UI/ranking changes
@@ -157,7 +161,7 @@ Examples:
 - The hand setup is now a simple unchecked = one-handed, checked = two-handed toggle. One-handed is the default.
 - Two-handed mode hides the off-hand slot.
 - Bow/Crossbow mode shows Ammunition instead of Off-hand.
-- Damage/attack skill bonuses are tied to the selected weapon type. For example, if Axe is selected, sword-only and club-only helmets/armor no longer count as valid damage/attack results.
+- Attack skill bonuses are tied to the selected weapon type. For example, if Axe is selected, sword-only and club-only helmets/armor no longer count as valid attack results.
 - Hide controls on item cards are now icon buttons: eye = hide for this search, trash = hide permanently.
 
 

@@ -93,6 +93,7 @@ const headerAliases = new Map([
   ["resist", "resistancesText"],
   ["resist.", "resistancesText"],
   ["resistances", "resistancesText"],
+  ["dropped-by", "droppedBy"],
 ]);
 
 main().catch(error => {
@@ -248,12 +249,17 @@ function parsePage(html, page) {
         const text = cleanText($(cell).text());
         const imageUrl = extractImageUrl($, cell);
         if (imageUrl && !raw.imageUrl) raw.imageUrl = imageUrl;
-        if (!text && key !== "name" && key !== "damageType") return;
+        if (!text && key !== "name" && key !== "damageType" && key !== "droppedBy") return;
 
         if (key === "name") {
           const nameData = extractNameCell($, cell);
           raw.name = nameData.name || text;
           if (nameData.wikiUrl) raw.wikiUrl = nameData.wikiUrl;
+          return;
+        }
+
+        if (key === "droppedBy") {
+          raw.droppedBy = extractDroppedBy($, cell);
           return;
         }
 
@@ -302,6 +308,7 @@ function parsePage(html, page) {
         classification: toNumber(raw.classification, 0),
         attributes: parseAttributes(attributesText),
         resistances: parseResistances(`${attributesText} ${resistancesText}`),
+        droppedBy: raw.droppedBy || [],
         imageUrl: raw.imageUrl || "",
         wikiUrl: raw.wikiUrl || `${BASE}/wiki/${encodeURIComponent(name.replaceAll(" ", "_"))}`,
         sourcePage: page.url
@@ -342,7 +349,8 @@ function findHeaderRow($, rows) {
         "imbuementSlots",
         "classification",
         "attributesText",
-        "resistancesText"
+        "resistancesText",
+        "droppedBy"
       ].includes(header)
     ).length;
 
@@ -412,6 +420,27 @@ function extractNameCell($, cell) {
   }
 
   return { name: cleanText($(cell).text()), wikiUrl: "" };
+}
+
+function extractDroppedBy($, cell) {
+  const seen = new Set();
+  const creatures = [];
+
+  $(cell).find("a").each((_, link) => {
+    const href = $(link).attr("href") || "";
+    const title = cleanText($(link).attr("title") || $(link).text());
+    const isWikiArticle = href.startsWith("/wiki/") && !href.includes(":");
+    const isImage = /^(file|image):/i.test(title) || /\.(png|jpg|jpeg|gif|webp)$/i.test(href);
+    if (!isWikiArticle || !title || isImage || seen.has(title)) return;
+
+    seen.add(title);
+    creatures.push({
+      name: title,
+      wikiUrl: href.startsWith("http") ? href : `${BASE}${href}`
+    });
+  });
+
+  return creatures;
 }
 
 function extractDamageParts($, cell) {

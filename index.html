@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
   <title>Tibia Gear Finder</title>
-  <link rel="stylesheet" href="styles.css?v=20260703-11">
+  <link rel="stylesheet" href="styles.css?v=20260703-13">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <header class="hero">
         <p class="eyebrow"><a href="https://www.tibia.com/community/?name=Hitogedgy" target="_blank" rel="noopener noreferrer">Hitogedgy</a>'s super awesome equipment helper</p>
         <h1>Tibia Gear Finder</h1>
-        <p class="intro">Pick your vocation, level, slot and priority. The app filters what you can wear and explains why each item ranks well.</p>
+        <p class="intro">Pick your vocation, level, slot and priority. The app filters what you can wear and shows what drops each item.</p>
       </header>
 
       <section class="panel controls" aria-label="Search controls">
@@ -68,6 +68,14 @@
             <span>Two-handed</span>
           </span>
         </label>
+
+        <label class="checkbox-label show-drops-label">
+          Sources
+          <span class="toggle-row">
+            <input id="showDrops" type="checkbox" checked>
+            <span>Show drops</span>
+          </span>
+        </label>
       </section>
 
       <aside class="equipment-card" aria-label="Equipment preview">
@@ -101,6 +109,6 @@
   </main>
 
   <script src="data/items.js?v=20260703-1"></script>
-  <script src="app.js?v=20260703-9"></script>
+  <script src="app.js?v=20260703-11"></script>
 </body>
 </html>

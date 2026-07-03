@@ -16,6 +16,7 @@ const damageTypeIcons = {
   earth: "https://static.wikia.nocookie.net/tibia/images/5/5e/Poisoned_Icon.gif/revision/latest?cb=20171123000012&path-prefix=en",
   death: "https://static.wikia.nocookie.net/tibia/images/9/9c/Cursed_Icon.gif/revision/latest?cb=20171122234722&path-prefix=en",
 };
+const generalResistanceTypes = ["physical", "fire", "ice", "energy", "earth", "holy", "death"];
 
 const slots = ["weapon", "shield", "ammo", "helmet", "armor", "legs", "boots", "ring", "amulet"];
 const fallbackBackpacks = [
@@ -158,10 +159,11 @@ const priorities = {
               ["weight", "asc"],
             ],
   },
-  damage: {
-    label: "Damage / attack",
+  attack: {
+    label: "Attack",
     rules: vocation => [
       ["vocationDamageBoost", "desc"],
+      ["totalAttack", "desc"],
       ["shotDamageAverage", "desc"],
       ["damageMax", "desc"],
       ["attackMod", "desc"],
@@ -170,6 +172,72 @@ const priorities = {
       ["range", "desc"],
       ["effectivePhysicalDefense", "desc"],
       ["totalResistance", "desc"],
+      ["weight", "asc"],
+    ],
+  },
+  attackPhysical: {
+    label: "Physical attack",
+    rules: [
+      ["attack.physical", "desc"],
+      ["vocationDamageBoost", "desc"],
+      ["totalAttack", "desc"],
+      ["attackMod", "desc"],
+      ["hitPercent", "desc"],
+      ["weight", "asc"],
+    ],
+  },
+  attackFire: {
+    label: "Fire attack",
+    rules: [
+      ["attack.fire", "desc"],
+      ["vocationDamageBoost", "desc"],
+      ["totalAttack", "desc"],
+      ["attackMod", "desc"],
+      ["hitPercent", "desc"],
+      ["weight", "asc"],
+    ],
+  },
+  attackIce: {
+    label: "Ice attack",
+    rules: [
+      ["attack.ice", "desc"],
+      ["vocationDamageBoost", "desc"],
+      ["totalAttack", "desc"],
+      ["attackMod", "desc"],
+      ["hitPercent", "desc"],
+      ["weight", "asc"],
+    ],
+  },
+  attackEnergy: {
+    label: "Energy attack",
+    rules: [
+      ["attack.energy", "desc"],
+      ["vocationDamageBoost", "desc"],
+      ["totalAttack", "desc"],
+      ["attackMod", "desc"],
+      ["hitPercent", "desc"],
+      ["weight", "asc"],
+    ],
+  },
+  attackEarth: {
+    label: "Earth attack",
+    rules: [
+      ["attack.earth", "desc"],
+      ["vocationDamageBoost", "desc"],
+      ["totalAttack", "desc"],
+      ["attackMod", "desc"],
+      ["hitPercent", "desc"],
+      ["weight", "asc"],
+    ],
+  },
+  attackDeath: {
+    label: "Death attack",
+    rules: [
+      ["attack.death", "desc"],
+      ["vocationDamageBoost", "desc"],
+      ["totalAttack", "desc"],
+      ["attackMod", "desc"],
+      ["hitPercent", "desc"],
       ["weight", "asc"],
     ],
   },
@@ -238,6 +306,14 @@ const priorities = {
       ["weight", "asc"],
     ],
   },
+  physicalResistance: {
+    label: "Physical resistance",
+    rules: [
+      ["resistances.physical", "desc"],
+      ["effectivePhysicalDefense", "desc"],
+      ["weight", "asc"],
+    ],
+  },
   fire: {
     label: "Fire resistance",
     rules: [
@@ -262,21 +338,82 @@ const priorities = {
       ["weight", "asc"],
     ],
   },
+  earth: {
+    label: "Earth resistance",
+    rules: [
+      ["resistances.earth", "desc"],
+      ["effectivePhysicalDefense", "desc"],
+      ["weight", "asc"],
+    ],
+  },
+  holy: {
+    label: "Holy resistance",
+    rules: [
+      ["resistances.holy", "desc"],
+      ["effectivePhysicalDefense", "desc"],
+      ["weight", "asc"],
+    ],
+  },
+  death: {
+    label: "Death resistance",
+    rules: [
+      ["resistances.death", "desc"],
+      ["effectivePhysicalDefense", "desc"],
+      ["weight", "asc"],
+    ],
+  },
+  drown: {
+    label: "Drown resistance",
+    rules: [
+      ["resistances.drown", "desc"],
+      ["effectivePhysicalDefense", "desc"],
+      ["weight", "asc"],
+    ],
+  },
+  lifedrain: {
+    label: "Life drain resistance",
+    rules: [
+      ["resistances.lifedrain", "desc"],
+      ["effectivePhysicalDefense", "desc"],
+      ["weight", "asc"],
+    ],
+  },
+  manadrain: {
+    label: "Mana drain resistance",
+    rules: [
+      ["resistances.manadrain", "desc"],
+      ["effectivePhysicalDefense", "desc"],
+      ["weight", "asc"],
+    ],
+  },
 };
 
 const priorityChecks = {
   balanced: () => true,
   light: item => toNumber(item.weight, 0) > 0,
-  damage: (item, vocation) => getVocationDamageBoost(item, vocation) > 0 || toNumber(item.attack, 0) > 0 || toNumber(item.attackMod, 0) > 0 || toNumber(item.hitPercent, 0) > 0 || toNumber(item.shotDamageAverage, 0) > 0,
+  attack: (item, vocation) => getVocationDamageBoost(item, vocation) > 0 || getTotalAttack(item) > 0 || toNumber(item.attackMod, 0) > 0 || toNumber(item.hitPercent, 0) > 0 || toNumber(item.shotDamageAverage, 0) > 0,
+  attackPhysical: (item, vocation) => getAttackByType(item, "physical") > 0 || getVocationDamageBoost(item, vocation) > 0,
+  attackFire: (item, vocation) => getAttackByType(item, "fire") > 0 || getVocationDamageBoost(item, vocation) > 0,
+  attackIce: (item, vocation) => getAttackByType(item, "ice") > 0 || getVocationDamageBoost(item, vocation) > 0,
+  attackEnergy: (item, vocation) => getAttackByType(item, "energy") > 0 || getVocationDamageBoost(item, vocation) > 0,
+  attackEarth: (item, vocation) => getAttackByType(item, "earth") > 0 || getVocationDamageBoost(item, vocation) > 0,
+  attackDeath: (item, vocation) => getAttackByType(item, "death") > 0 || getVocationDamageBoost(item, vocation) > 0,
   range: item => toNumber(item.range, 0) > 0,
   armor: item => getEffectivePhysicalDefense(item) > 0 || toNumber(item.armor, 0) > 0 || toNumber(item.defense, 0) > 0,
   distance: item => toNumber(item.attributes?.distance, 0) > 0,
   magic: item => toNumber(item.attributes?.magicLevel, 0) > 0,
   speed: item => toNumber(item.attributes?.speed, 0) > 0,
   physical: item => getEffectivePhysicalDefense(item) > 0 || toNumber(item.resistances?.physical, 0) > 0,
+  physicalResistance: item => toNumber(item.resistances?.physical, 0) > 0,
   fire: item => toNumber(item.resistances?.fire, 0) > 0,
   ice: item => toNumber(item.resistances?.ice, 0) > 0,
   energy: item => toNumber(item.resistances?.energy, 0) > 0,
+  earth: item => toNumber(item.resistances?.earth, 0) > 0,
+  holy: item => toNumber(item.resistances?.holy, 0) > 0,
+  death: item => toNumber(item.resistances?.death, 0) > 0,
+  drown: item => toNumber(item.resistances?.drown, 0) > 0,
+  lifedrain: item => toNumber(item.resistances?.lifedrain, 0) > 0,
+  manadrain: item => toNumber(item.resistances?.manadrain, 0) > 0,
 };
 
 const els = {
@@ -288,6 +425,7 @@ const els = {
   priority: document.querySelector("#priority"),
   weaponType: document.querySelector("#weaponType"),
   twoHanded: document.querySelector("#twoHanded"),
+  showDrops: document.querySelector("#showDrops"),
   handLabel: document.querySelector("#handLabel"),
   equipmentHover: document.querySelector("#equipmentHover"),
   equipmentPreview: document.querySelector("#equipmentPreview"),
@@ -326,6 +464,8 @@ function init() {
       render();
     });
   }
+
+  els.showDrops.addEventListener("input", render);
 
   els.weaponType.addEventListener("input", () => {
     applyWeaponTypeHandDefaults(false);
@@ -376,10 +516,27 @@ function normalizeItems(raw) {
     imbuementSlots: toNumber(item.imbuementSlots, 0),
     attributes: item.attributes || {},
     resistances: item.resistances || {},
+    droppedBy: normalizeDroppedBy(item.droppedBy),
     wikiUrl: item.wikiUrl || "",
     raw: item,
   };
   });
+}
+
+function normalizeDroppedBy(droppedBy) {
+  if (!Array.isArray(droppedBy)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const source of droppedBy) {
+    const name = String(source?.name || "").trim();
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    out.push({
+      name,
+      wikiUrl: source?.wikiUrl || "",
+    });
+  }
+  return out;
 }
 
 
@@ -449,7 +606,13 @@ function canUseItem(item, vocation, level) {
 
 function getStat(item, path, vocation) {
   if (path === "totalResistance") {
-    return Object.values(item.resistances || {}).reduce((sum, value) => sum + toNumber(value, 0), 0);
+    return getGeneralResistanceTotal(item);
+  }
+  if (path === "totalAttack") {
+    return getTotalAttack(item);
+  }
+  if (path.startsWith("attack.")) {
+    return getAttackByType(item, path.split(".")[1]);
   }
   if (path === "balancedShieldScore") {
     return getBalancedShieldScore(item, vocation);
@@ -469,6 +632,42 @@ function getStat(item, path, vocation) {
   return path.split(".").reduce((obj, key) => obj?.[key], item) ?? 0;
 }
 
+function getGeneralResistanceTotal(item) {
+  return generalResistanceTypes.reduce((sum, key) => sum + toNumber(item.resistances?.[key], 0), 0);
+}
+
+function getTotalAttack(item) {
+  if (Array.isArray(item.damageParts) && item.damageParts.length) {
+    return item.damageParts.reduce((sum, part) => sum + toNumber(part.amount, 0), 0);
+  }
+  return Math.max(toNumber(item.attack, 0), toNumber(item.shotDamageAverage, 0));
+}
+
+function getAttackByType(item, type) {
+  if (!type) return 0;
+  const wanted = cleanKey(type);
+
+  if (Array.isArray(item.damageParts) && item.damageParts.length) {
+    return item.damageParts.reduce((sum, part) => {
+      return cleanKey(part.type || "physical") === wanted ? sum + toNumber(part.amount, 0) : sum;
+    }, 0);
+  }
+
+  const attack = toNumber(item.attack, 0);
+  if (attack) {
+    const itemType = cleanKey(item.damageType || "physical");
+    return itemType === wanted ? attack : 0;
+  }
+
+  const shotDamage = toNumber(item.shotDamageAverage, 0);
+  if (shotDamage) {
+    const itemType = cleanKey(item.damageType || "");
+    return itemType === wanted ? shotDamage : 0;
+  }
+
+  return 0;
+}
+
 function getEffectivePhysicalDefense(item) {
   // Practical ranking score: one point of physical resistance is treated as
   // roughly one point of equipment defence for sorting purposes. This makes
@@ -480,7 +679,7 @@ function getEffectivePhysicalDefense(item) {
 
 function getBalancedShieldScore(item, vocation) {
   const physicalDefense = getEffectivePhysicalDefense(item);
-  const totalResistance = Object.values(item.resistances || {}).reduce((sum, value) => sum + toNumber(value, 0), 0);
+  const totalResistance = getGeneralResistanceTotal(item);
   const vocationBoost = getVocationDamageBoost(item, vocation);
   const shielding = toNumber(item.attributes?.shielding, 0);
   const weight = toNumber(item.weight, 0);
@@ -494,7 +693,7 @@ function getBalancedShieldScore(item, vocation) {
 
 function getBalancedWearableScore(item, vocation) {
   const physicalDefense = getEffectivePhysicalDefense(item);
-  const totalResistance = Object.values(item.resistances || {}).reduce((sum, value) => sum + toNumber(value, 0), 0);
+  const totalResistance = getGeneralResistanceTotal(item);
   const vocationBoost = getVocationDamageBoost(item, vocation);
   const secondaryBoost = getSecondaryGearBoost(item, vocation);
   const shielding = toNumber(item.attributes?.shielding, 0);
@@ -510,7 +709,7 @@ function getBalancedWearableScore(item, vocation) {
 
 function getBalancedArmorScore(item, vocation) {
   const physicalDefense = getEffectivePhysicalDefense(item);
-  const totalResistance = Object.values(item.resistances || {}).reduce((sum, value) => sum + toNumber(value, 0), 0);
+  const totalResistance = getGeneralResistanceTotal(item);
   const vocationBoost = getVocationDamageBoost(item, vocation);
   const secondaryBoost = getSecondaryGearBoost(item, vocation);
   const shielding = toNumber(item.attributes?.shielding, 0);
@@ -759,7 +958,7 @@ function renderEquipmentHoverCard(item) {
     return "";
   }
   const stats = buildStats(item);
-  const reason = buildReason(item);
+  const drops = renderDropSources(item);
   const imageUrl = safeImageUrl(item.imageUrl);
   const meta = [
     item.type ? titleCase(item.type) : titleCase(item.slot),
@@ -774,7 +973,7 @@ function renderEquipmentHoverCard(item) {
     <span class="equipment-hover-card">
       <span class="item-card-head">${image}<span><strong>${escapeHtml(item.name)}</strong><span class="meta">${escapeHtml(meta)}</span></span></span>
       <span class="stats">${stats.map(renderStatPill).join("")}</span>
-      <span class="reason">${escapeHtml(reason)}</span>
+      <span class="reason">${drops}</span>
     </span>`;
 }
 
@@ -1086,7 +1285,7 @@ function renderUnavailablePriorityCard(slot, priorityKey, compact) {
 
 function renderItemCard(item, index, compact) {
   const stats = buildStats(item);
-  const reason = buildReason(item);
+  const drops = shouldShowDropSources() ? renderDropSources(item) : "";
   const imageUrl = safeImageUrl(item.imageUrl);
   const wikiUrl = safeWikiUrl(item.wikiUrl);
   const isSelected = selectedEquipment[item.slot] === item.id;
@@ -1100,13 +1299,30 @@ function renderItemCard(item, index, compact) {
     <article class="item-card ${index === 0 ? "best" : ""} ${isSelected ? "selected" : ""}" data-item-id="${escapeAttr(item.id)}">
       <div class="item-card-head">${image}<div><h3>${index === 0 ? "★ " : ""}${escapeHtml(item.name)}</h3><div class="meta">${escapeHtml(meta)}</div></div></div>
       <div class="stats">${stats.map(renderStatPill).join("")}</div>
-      ${compact ? "" : `<p class="reason">${escapeHtml(reason)}</p>`}
+      ${drops ? `<p class="reason">${drops}</p>` : ""}
       <div class="card-actions">
         ${wikiUrl ? `<a href="${escapeAttr(wikiUrl)}" target="_blank" rel="noopener noreferrer">Open wiki page</a>` : ""}
         <button class="icon-button secondary-button" type="button" data-action="temp-hide" data-id="${escapeAttr(item.id)}" title="Hide for this search" aria-label="Hide ${escapeAttr(item.name)} for this search">👁</button>
         <button class="icon-button danger-button" type="button" data-action="perm-hide" data-id="${escapeAttr(item.id)}" title="Hide permanently" aria-label="Hide ${escapeAttr(item.name)} permanently">🗑</button>
       </div>
     </article>`;
+}
+
+function shouldShowDropSources() {
+  return els.showDrops?.checked !== false;
+}
+
+function renderDropSources(item) {
+  const sources = item.droppedBy || [];
+  if (!sources.length) {
+    return "Dropped by: Nothing unless the wiki isn't up to date. Might be purchasable or from a quest.";
+  }
+
+  return `Dropped by ${sources.map(source => {
+    const url = safeWikiUrl(source.wikiUrl);
+    const name = escapeHtml(source.name);
+    return url ? `<a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer">${name}</a>` : name;
+  }).join(", ")}.`;
 }
 
 function renderStatPill(stat) {
@@ -1163,27 +1379,6 @@ function addAttackStats(out, item) {
     }
   }
   if (item.attackMod) out.push(`Atk mod ${fmtSigned(item.attackMod)}`);
-}
-
-function buildReason(item) {
-  const bits = [];
-  if (item.range) bits.push(`range ${item.range}`);
-  if (item.attackMod) bits.push(`attack modifier ${fmtSigned(item.attackMod)}`);
-  if (item.damageType) bits.push(`${titleCase(item.damageType)} damage`);
-  if (item.armor) bits.push(`armor ${item.armor}`);
-  if (item.defense) bits.push(`defence ${item.defense}`);
-  const effectivePhysicalDefense = getEffectivePhysicalDefense(item);
-  const baseDefense = Math.max(toNumber(item.armor, 0), toNumber(item.defense, 0));
-  if (effectivePhysicalDefense && effectivePhysicalDefense !== baseDefense) bits.push(`physical defence score ${effectivePhysicalDefense}`);
-  if (item.attributes?.distance) bits.push(`distance ${fmtSigned(item.attributes.distance)}`);
-  if (item.attributes?.magicLevel) bits.push(`magic level ${fmtSigned(item.attributes.magicLevel)}`);
-  if (item.attributes?.fist) bits.push(`fist fighting ${fmtSigned(item.attributes.fist)}`);
-  if (item.attributes?.speed) bits.push(`speed ${fmtSigned(item.attributes.speed)}`);
-  if (item.imbuementSlots) bits.push(`${item.imbuementSlots} imbuement slot${item.imbuementSlots === 1 ? "" : "s"}`);
-  if (item.shotDamageAverage) bits.push(`wand/rod damage ${item.damageMin}-${item.damageMax}`);
-  if (item.resistances?.physical) bits.push(`physical resistance ${fmtSigned(item.resistances.physical)}%`);
-  if (item.weight) bits.push(`weight ${item.weight}`);
-  return bits.length ? `Chosen because it has ${bits.join(", ")} while matching your level and vocation.` : "Chosen because it matches your level and vocation better than the other parsed options.";
 }
 
 function fmtSigned(value) {
