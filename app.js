@@ -5,6 +5,7 @@ const HIDDEN_STORAGE_KEY = "tibiaGearFinder.hiddenItems.v1";
 const permanentlyHidden = loadPermanentHidden();
 let temporarilyHidden = new Set();
 let selectedEquipment = {};
+let collapsedSlots = new Set();
 
 const DEFAULT_RESULTS_PER_SLOT = 5;
 const damageTypeIcons = {
@@ -288,6 +289,7 @@ const els = {
   weaponType: document.querySelector("#weaponType"),
   twoHanded: document.querySelector("#twoHanded"),
   handLabel: document.querySelector("#handLabel"),
+  equipmentHover: document.querySelector("#equipmentHover"),
   equipmentPreview: document.querySelector("#equipmentPreview"),
   equipmentSummary: document.querySelector("#equipmentSummary"),
   results: document.querySelector("#results"),
@@ -331,6 +333,10 @@ function init() {
     render();
   });
   els.equipmentPreview.addEventListener("click", handleEquipmentPreviewClick);
+  els.equipmentPreview.addEventListener("mouseover", handleEquipmentPreviewHover);
+  els.equipmentPreview.addEventListener("focusin", handleEquipmentPreviewHover);
+  els.equipmentPreview.addEventListener("mouseleave", clearEquipmentHover);
+  els.equipmentPreview.addEventListener("focusout", clearEquipmentHover);
   els.results.addEventListener("click", handleResultClick);
   els.hiddenList.addEventListener("click", handleHiddenClick);
   els.clearHiddenButton.addEventListener("click", clearPermanentHidden);
@@ -738,18 +744,20 @@ function renderEquipmentPreview(priorityKey) {
     const content = imageUrl
       ? `<img src="${escapeAttr(imageUrl)}" alt="${escapeAttr(item.name)}" loading="lazy" referrerpolicy="no-referrer">`
       : `<span>${cell.slot ? escapeHtml(cell.label.slice(0, 2)) : ""}</span>`;
-    const hoverCard = item && cell.slot !== "backpack"
-      ? renderEquipmentHoverCard(item)
-      : "";
     if (!cell.slot || cell.slot === "backpack") {
       return `<div class="equipment-slot equipment-${cell.key}" aria-label="${escapeAttr(label)}">${content}</div>`;
     }
     const selectedClass = selectedEquipment[cell.slot] === item?.id ? " selected-equipment" : "";
-    return `<button class="equipment-slot equipment-${cell.key}${selectedClass}" type="button" data-slot="${escapeAttr(cell.slot)}" aria-label="${escapeAttr(label)}">${content}${hoverCard}</button>`;
+    const itemId = item ? ` data-item-id="${escapeAttr(item.id)}"` : "";
+    return `<button class="equipment-slot equipment-${cell.key}${selectedClass}" type="button" data-slot="${escapeAttr(cell.slot)}"${itemId} aria-label="${escapeAttr(label)}">${content}</button>`;
   }).join("");
+  clearEquipmentHover();
 }
 
 function renderEquipmentHoverCard(item) {
+  if (!item) {
+    return "";
+  }
   const stats = buildStats(item);
   const reason = buildReason(item);
   const imageUrl = safeImageUrl(item.imageUrl);
@@ -763,11 +771,34 @@ function renderEquipmentHoverCard(item) {
     : `<div class="item-image placeholder" aria-hidden="true">?</div>`;
 
   return `
-    <span class="equipment-hover-card" role="tooltip">
+    <span class="equipment-hover-card">
       <span class="item-card-head">${image}<span><strong>${escapeHtml(item.name)}</strong><span class="meta">${escapeHtml(meta)}</span></span></span>
       <span class="stats">${stats.map(renderStatPill).join("")}</span>
       <span class="reason">${escapeHtml(reason)}</span>
     </span>`;
+}
+
+function renderEquipmentHoverItem(item) {
+  if (!els.equipmentHover) return;
+  if (!item) {
+    clearEquipmentHover();
+    return;
+  }
+  els.equipmentHover.innerHTML = renderEquipmentHoverCard(item);
+  els.equipmentHover.classList.add("active");
+}
+
+function handleEquipmentPreviewHover(event) {
+  const slot = event.target.closest(".equipment-slot[data-item-id]");
+  if (!slot || !els.equipmentPreview.contains(slot)) return;
+  const item = items.find(candidate => candidate.id === slot.dataset.itemId);
+  renderEquipmentHoverItem(item);
+}
+
+function clearEquipmentHover() {
+  if (!els.equipmentHover) return;
+  els.equipmentHover.innerHTML = "";
+  els.equipmentHover.classList.remove("active");
 }
 
 function renderEquipmentSummary(equipment) {
@@ -1001,8 +1032,11 @@ function getRankedForSlot(sourceItems, priorityKey, limit) {
 
 function renderSlot(slot, ranked, compact, priorityKey, hasPriorityMatch) {
   const sectionId = getSlotSectionId(slot);
+  const collapsed = collapsedSlots.has(slot);
+  const title = renderSlotTitle(slot, collapsed);
   if (ranked.length === 0 && hasPriorityMatch) {
-    return `<article id="${sectionId}" class="slot-group"><div class="slot-title"><h3>${slotLabels[slot]}</h3></div><p class="empty">No usable ${slotLabels[slot].toLowerCase()} found for these filters.</p></article>`;
+    const body = collapsed ? "" : `<p class="empty">No usable ${slotLabels[slot].toLowerCase()} found for these filters.</p>`;
+    return `<article id="${sectionId}" class="slot-group${collapsed ? " collapsed" : ""}">${title}${body}</article>`;
   }
 
   const unavailableCard = hasPriorityMatch
@@ -1010,11 +1044,24 @@ function renderSlot(slot, ranked, compact, priorityKey, hasPriorityMatch) {
     : renderUnavailablePriorityCard(slot, priorityKey, compact);
 
   if (ranked.length === 0) {
-    return `<article id="${sectionId}" class="slot-group"><div class="slot-title"><h3>${slotLabels[slot]}</h3></div><div class="card-grid">${unavailableCard}</div></article>`;
+    const body = collapsed ? "" : `<div class="card-grid">${unavailableCard}</div>`;
+    return `<article id="${sectionId}" class="slot-group${collapsed ? " collapsed" : ""}">${title}${body}</article>`;
   }
 
   const cards = ranked.map((item, index) => renderItemCard(item, hasPriorityMatch ? index : index + 1, compact)).join("");
-  return `<article id="${sectionId}" class="slot-group"><div class="slot-title"><h3>${slotLabels[slot]}</h3></div><div class="card-grid">${unavailableCard}${cards}</div></article>`;
+  const body = collapsed ? "" : `<div class="card-grid">${unavailableCard}${cards}</div>`;
+  return `<article id="${sectionId}" class="slot-group${collapsed ? " collapsed" : ""}">${title}${body}</article>`;
+}
+
+function renderSlotTitle(slot, collapsed) {
+  const label = slotLabels[slot];
+  const icon = collapsed ? "+" : "-";
+  const action = collapsed ? "Expand" : "Minimise";
+  return `
+    <div class="slot-title">
+      <h3>${escapeHtml(label)}</h3>
+      <button class="slot-collapse-button" type="button" data-action="toggle-slot" data-slot="${escapeAttr(slot)}" aria-expanded="${collapsed ? "false" : "true"}" aria-label="${action} ${escapeAttr(label)}" title="${action} ${escapeAttr(label)}">${icon}</button>
+    </div>`;
 }
 
 function getSlotSectionId(slot) {
@@ -1205,6 +1252,18 @@ function handleResultClick(event) {
     const item = items.find(candidate => candidate.id === card.dataset.itemId);
     if (!item) return;
     selectedEquipment[item.slot] = item.id;
+    render();
+    return;
+  }
+
+  if (button.dataset.action === "toggle-slot") {
+    const slot = button.dataset.slot;
+    if (!slot) return;
+    if (collapsedSlots.has(slot)) {
+      collapsedSlots.delete(slot);
+    } else {
+      collapsedSlots.add(slot);
+    }
     render();
     return;
   }

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
   <title>Tibia Gear Finder</title>
-  <link rel="stylesheet" href="styles.css?v=20260703-5">
+  <link rel="stylesheet" href="styles.css?v=20260703-11">
 </head>
 <body>
   <main class="shell">
@@ -31,6 +31,11 @@
         <label class="level-label">
           Level
           <input id="level" type="number" min="0" value="500">
+        </label>
+
+        <label class="result-limit-label">
+          <span>Show <strong id="resultLimitValue">5</strong></span>
+          <input id="resultLimit" type="range" min="1" max="5" value="5">
         </label>
 
         <label class="mode-label">
@@ -66,6 +71,7 @@
       </section>
 
       <aside class="equipment-card" aria-label="Equipment preview">
+        <div id="equipmentHover" class="equipment-hover-panel" aria-live="polite"></div>
         <div id="equipmentPreview" class="equipment-preview"></div>
         <div id="equipmentSummary" class="equipment-summary" aria-label="Equipment stat totals"></div>
       </aside>
@@ -75,10 +81,6 @@
       <div>
         <div class="results-title-row">
           <h2 id="resultsTitle">Best items</h2>
-          <label class="result-limit-label">
-            <span>Show <strong id="resultLimitValue">5</strong></span>
-            <input id="resultLimit" type="range" min="1" max="5" value="5">
-          </label>
         </div>
         <p id="summary"></p>
       </div>
@@ -99,6 +101,6 @@
   </main>
 
   <script src="data/items.js?v=20260703-1"></script>
-  <script src="app.js?v=20260703-6"></script>
+  <script src="app.js?v=20260703-9"></script>
 </body>
 </html>

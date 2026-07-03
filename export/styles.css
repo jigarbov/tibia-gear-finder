@@ -31,9 +31,9 @@ body {
   grid-template-areas:
     "hero equipment"
     "controls equipment";
-  gap: 14px;
+  gap: 10px 14px;
   align-items: stretch;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 
 .hero {
@@ -58,19 +58,34 @@ h3 { font-size: 16px; margin-bottom: 4px; }
 
 .equipment-card {
   grid-area: equipment;
-  width: 360px;
+  position: relative;
+  width: 430px;
   border: 1px solid var(--line);
   background: linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.025));
   border-radius: 12px;
   padding: 10px;
   text-align: center;
-  align-self: stretch;
+  align-self: end;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 10px;
 }
+.equipment-hover-panel {
+  position: absolute;
+  top: 0;
+  right: calc(100% + 12px);
+  z-index: 30;
+  width: min(340px, calc(100vw - 28px));
+  display: none;
+  text-align: left;
+  pointer-events: none;
+}
+.equipment-hover-panel.active {
+  display: block;
+}
 .equipment-preview {
+  flex: 0 0 auto;
   display: grid;
   grid-template-columns: repeat(3, 50px);
   grid-auto-rows: 50px;
@@ -91,8 +106,6 @@ h3 { font-size: 16px; margin-bottom: 4px; }
 }
 button.equipment-slot {
   cursor: pointer;
-  position: relative;
-  overflow: visible;
 }
 button.equipment-slot:hover,
 button.equipment-slot:focus-visible {
@@ -105,26 +118,12 @@ button.equipment-slot:focus-visible {
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.34), 0 0 0 2px rgba(125,190,255,.22);
 }
 .equipment-hover-card {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 50%;
-  z-index: 20;
-  display: none;
-  width: 280px;
-  max-width: min(280px, calc(100vw - 28px));
-  transform: translateX(-50%);
-  padding: 12px;
-  text-align: left;
-  color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #172032;
-  box-shadow: 0 18px 44px rgba(0,0,0,.46);
-  pointer-events: none;
-}
-button.equipment-slot:hover .equipment-hover-card,
-button.equipment-slot:focus-visible .equipment-hover-card {
   display: block;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(20,28,42,.97);
+  border-radius: 8px;
+  box-shadow: 0 18px 42px rgba(0,0,0,.34);
+  padding: 10px;
 }
 .equipment-hover-card .item-card-head {
   display: grid;
@@ -142,6 +141,13 @@ button.equipment-slot:focus-visible .equipment-hover-card {
 .equipment-hover-card .meta,
 .equipment-hover-card .reason {
   display: block;
+}
+.equipment-hover-empty {
+  display: none;
+  color: rgba(244,247,251,.42);
+  font-size: 12px;
+  font-weight: 850;
+  text-align: center;
 }
 .equipment-slot img {
   width: 40px;
@@ -165,7 +171,7 @@ button.equipment-slot:focus-visible .equipment-hover-card {
   justify-content: flex-start;
   align-content: center;
   gap: 5px;
-  flex: 1 1 150px;
+  flex: 1 1 120px;
   min-width: 0;
 }
 .summary-pill {
@@ -207,31 +213,34 @@ button.equipment-slot:focus-visible .equipment-hover-card {
   grid-area: controls;
   display: flex;
   flex-wrap: wrap;
-  gap: 9px 12px;
+  gap: 7px 10px;
   align-items: end;
   justify-self: start;
   width: fit-content;
   max-width: 100%;
+  margin-bottom: 0;
+  padding: 10px 12px;
 }
 
 .level-label {
   width: auto;
-  flex-basis: 96px;
+  flex-basis: 86px;
 }
 
 .vocation-label {
   max-width: none;
-  flex-basis: 180px;
+  flex-basis: 160px;
 }
 
 .slot-label {
   max-width: none;
-  flex-basis: 116px;
+  flex-basis: 106px;
 }
-.mode-label { flex-basis: 190px; }
-.priority-label { flex-basis: 168px; }
-.weapon-type-label { flex-basis: 150px; }
-.checkbox-label { flex-basis: 150px; }
+.result-limit-label { flex-basis: 146px; }
+.mode-label { flex-basis: 170px; }
+.priority-label { flex-basis: 150px; }
+.weapon-type-label { flex-basis: 136px; }
+.checkbox-label { flex-basis: 138px; }
 .controls::after {
   content: "";
   flex-basis: 100%;
@@ -247,7 +256,7 @@ button.equipment-slot:focus-visible .equipment-hover-card {
 
 label {
   display: grid;
-  gap: 5px;
+  gap: 4px;
   color: var(--muted);
   font-weight: 700;
   font-size: 12px;
@@ -259,7 +268,7 @@ select, input, button {
   border: 1px solid var(--line);
   background: var(--panel-2);
   color: var(--text);
-  min-height: 34px;
+  min-height: 32px;
   padding: 0 9px;
   width: 100%;
 }
@@ -297,11 +306,7 @@ code {
 .file-button input { display: none; }
 
 .results-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 14px;
-  align-items: center;
-  margin: 18px 0 12px;
+  display: none;
 }
 .results-title-row {
   display: flex;
@@ -332,15 +337,25 @@ code {
 #summary { color: var(--muted); margin: 0; }
 
 .results {
-  display: grid;
-  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
 }
 
 .slot-group {
+  flex: 0 0 100%;
   border: 1px solid var(--line);
   background: rgba(23,32,50,.72);
   border-radius: 16px;
   padding: 14px;
+}
+.slot-group.collapsed {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 7px 8px 7px 14px;
 }
 .slot-title {
   display: flex;
@@ -349,7 +364,42 @@ code {
   gap: 12px;
   margin-bottom: 12px;
 }
+.slot-group.collapsed .slot-title {
+  margin-bottom: 0;
+  gap: 10px;
+}
 .slot-title h3 { margin: 0; text-transform: capitalize; }
+.slot-group.collapsed .slot-title h3 {
+  font-size: 14px;
+}
+.slot-collapse-button {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 8px;
+  background: rgba(255,255,255,.055);
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+.slot-group.collapsed .slot-collapse-button {
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  border-radius: 999px;
+  font-size: 15px;
+}
+.slot-collapse-button:hover,
+.slot-collapse-button:focus-visible {
+  border-color: rgba(225,184,105,.55);
+  outline: none;
+}
 
 .card-grid {
   display: grid;
@@ -414,17 +464,22 @@ a { color: var(--accent); text-decoration: none; font-weight: 800; }
       "controls";
   }
   .equipment-card {
-    width: min(100%, 360px);
+    width: min(100%, 430px);
     justify-self: start;
-    flex-wrap: wrap;
+  }
+  .equipment-hover-panel {
+    right: auto;
+    left: 0;
+    top: calc(100% + 8px);
   }
   .equipment-summary { justify-content: center; }
-  .hero, .utilities, .results-head { grid-template-columns: 1fr; display: grid; }
+  .hero, .utilities { grid-template-columns: 1fr; display: grid; }
   .controls {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     grid-template-areas:
       "vocation level"
+      "limit limit"
       "mode slot"
       "priority weapon"
       "hand hand";
@@ -439,6 +494,7 @@ a { color: var(--accent); text-decoration: none; font-weight: 800; }
   }
   .vocation-label { grid-area: vocation; }
   .level-label { grid-area: level; }
+  .result-limit-label { grid-area: limit; }
   .mode-label { grid-area: mode; }
   .slot-label { grid-area: slot; }
   .priority-label { grid-area: priority; }
@@ -453,6 +509,7 @@ a { color: var(--accent); text-decoration: none; font-weight: 800; }
     grid-template-areas:
       "vocation"
       "level"
+      "limit"
       "mode"
       "slot"
       "priority"
@@ -544,7 +601,7 @@ a { color: var(--accent); text-decoration: none; font-weight: 800; }
 @media (min-width: 1200px) {
   .shell { width: min(1440px, calc(100% - 40px)); }
   .card-grid { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
-  .slot-group { padding: 14px; }
+  .slot-group:not(.collapsed) { padding: 14px; }
 }
 
 @media (min-width: 1500px) {
