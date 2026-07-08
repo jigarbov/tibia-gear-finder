@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Speed Breakpoint Calculator</title>
+  <link rel="stylesheet" href="styles.css?v=20260708-16">
+</head>
+<body>
+  <main class="shell speed-shell">
+    <nav class="site-nav" aria-label="Tools">
+      <a class="site-nav-link" href="index.html">Equipment Finder</a>
+      <a class="site-nav-link active" href="speed-breakpoint.html">Speed Breakpoint Calculator</a>
+      <a class="site-nav-link" href="quest-suggester.html">Quest Suggest...er <span class="beta-tag">Beta</span></a>
+      <a class="site-nav-link" href="achievement-tracker.html">Achievement Tracker <span class="beta-tag">Beta</span></a>
+      <a class="site-nav-link" href="wheel-planner.html">Wheel Planner <span class="beta-tag">Beta</span></a>
+    </nav>
+
+    <header class="hero speed-hero">
+      <p class="eyebrow">Tibia movement planning</p>
+      <h1>Speed Breakpoint Calculator</h1>
+      <p class="intro">Choose a level and speed gear, then see which terrain breakpoints are actually reached.</p>
+    </header>
+
+    <section class="panel speed-controls" aria-label="Speed controls">
+      <label>
+        Vocation
+        <select id="speedVocation">
+          <option value="knight">Knight</option>
+          <option value="paladin">Paladin</option>
+          <option value="sorcerer">Sorcerer</option>
+          <option value="druid">Druid</option>
+          <option value="monk">Monk</option>
+        </select>
+      </label>
+
+      <label>
+        Level
+        <input id="speedLevel" type="number" min="1" value="500">
+      </label>
+
+      <label>
+        Extra speed
+        <input id="extraSpeed" type="number" value="0">
+      </label>
+
+      <label>
+        Temporary boost
+        <select id="speedTemporaryBoost"></select>
+      </label>
+
+      <label class="checkbox-label speed-mount-toggle">
+        Mount
+        <span class="toggle-row">
+          <input id="speedMounted" type="checkbox">
+          <span>Mounted</span>
+        </span>
+      </label>
+
+      <label class="checkbox-label speed-finder-toggle">
+        Finder gear
+        <span class="toggle-row">
+          <input id="useFinderEquipment" type="checkbox" checked>
+          <span>Use equipment from finder</span>
+        </span>
+      </label>
+    </section>
+
+    <section id="speedManualEquipment" class="panel speed-manual-equipment" aria-label="Manual speed equipment"></section>
+
+    <section class="speed-dashboard" aria-live="polite">
+      <div class="speed-total-panel">
+        <span>Total speed</span>
+        <strong id="totalSpeed">0</strong>
+        <p id="speedSummary"></p>
+      </div>
+      <div id="speedEquipmentSummary" class="speed-equipment-summary"></div>
+    </section>
+
+    <section class="panel speed-table-panel" aria-label="Speed breakpoint table">
+      <div class="speed-table-head">
+        <div>
+          <h2>Breakpoint table</h2>
+          <p>Highlighted cells are your current breakpoint on each terrain. The next outlined cell is the next useful speed target.</p>
+        </div>
+        <div class="speed-table-actions">
+          <label class="checkbox-label speed-level-delta-toggle">
+            Table values
+            <span class="toggle-row">
+              <input id="showLevelDeltas" type="checkbox">
+              <span>Show level difference</span>
+            </span>
+          </label>
+          <a href="https://tibia.fandom.com/wiki/Speed_Breakpoints" target="_blank" rel="noopener noreferrer">Breakpoint source</a>
+        </div>
+      </div>
+      <div id="speedBreakpointTable" class="speed-table-wrap"></div>
+    </section>
+  </main>
+
+  <script src="data/items.js?v=20260703-1"></script>
+  <script src="app.js?v=20260706-11"></script>
+</body>
+</html>

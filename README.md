@@ -8,9 +8,24 @@ Open `index.html` in your browser.
 
 The app loads `data/items.js`, not just `items.json`, so it still works when opened directly from your computer with a `file:///` path.
 
-The included data is only a small starter/sample dataset. Run the scraper to replace it with current data from TibiaWiki.
+The included data is only a small starter/sample dataset. Run the scraper to replace it with current data from the wiki sources.
 
-## Refresh the data from TibiaWiki
+## Data sources
+
+Current scrape sources:
+
+- Equipment tables: `https://tibia.fandom.com/wiki/Bows`, `Crossbows`, `Sword_Weapons`, `Axe_Weapons`, `Club_Weapons`, `Wands`, `Rods`, `Fist_Fighting_Weapons`, `Throwing_Weapons`, `Ammunition`, `Helmets`, `Armors`, `Legs`, `Boots`, `Shields`, `Spellbooks`, `Rings`, `Amulets_and_Necklaces`, and `Backpacks`.
+- Quest list: `https://tibia.fandom.com/wiki/Quests`.
+- Achievement spoilers: `https://tibia.fandom.com/wiki/Achievements/Spoiler`.
+
+Useful future/enrichment source:
+
+- Quest requirement levels: `https://www.tibiawiki.com.br/wiki/Quests`.
+  This page has a `Level` column that is useful as a door/requirement level, but it should not replace Fandom's recommended level. Treat it as `requiredLevel` or `doorLevel`, then display both when available, for example `Req 100 / Rec 250`.
+
+The scraper caches fetched pages in `cache/`, so source pages can be saved there manually if a wiki blocks automated requests.
+
+## Refresh the data from wiki sources
 
 Install Node.js first if you do not already have it.
 
@@ -29,6 +44,53 @@ data/items.js
 ```
 
 After scraping, refresh `index.html` in your browser.
+
+## Quest suggester
+
+Open `quest-suggester.html` to find mainland quests by level, area and reward type.
+
+The quest suggester intentionally ignores premium requirements and skips Newbie Island quests. Quest state is stored in your browser:
+
+- **Done** hides a quest by default.
+- **Later** pushes a quest to the end of the visible list.
+
+Refresh quest data with:
+
+```bash
+npm run scrape:quests
+```
+
+That writes:
+
+```text
+data/quests.json
+data/quests.js
+```
+
+## Achievement tracker
+
+Open `achievement-tracker.html` to track achievements separately from quests.
+
+You can paste the copied text from your Tibia character page into the import box. The tracker matches known achievement names, marks them completed in your browser, and the Quest Suggester reads that same completion data to mark quests as **likely done** when a completed achievement is linked to a quest.
+
+Refresh achievement data with:
+
+```bash
+npm run scrape:achievements
+```
+
+That writes:
+
+```text
+data/achievements.json
+data/achievements.js
+```
+
+## Wheel planner
+
+Open `wheel-planner.html` to choose a vocation, level, extra promotion points and optimisation goal for the Wheel of Destiny.
+
+The planner uses open-source wheel model data from `https://tibia-wheel.vercel.app/` / `https://gitlab.com/klhio/tibia-wheel` for the real node costs, unlock rules and vocation perk maps where available. It scores legal allocations for the selected goal, spends the available points, renders a wheel with vendored skillwheel graphics from the public tibia-wheel build, and exports an official Tibia planner code for Knight, Paladin, Sorcerer and Druid. Tibia and the wheel images are property of CipSoft GmbH. Monk is still handled by the simpler comparison fallback until a current public wheel dataset is added.
 
 ## Running it like a normal local website
 

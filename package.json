@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "scrape": "node scrape.js",
+    "scrape:quests": "node scrape-quests.js",
+    "scrape:achievements": "node scrape-achievements.js",
     "serve": "npx http-server . -p 8080"
   },
   "dependencies": {

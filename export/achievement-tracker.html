@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Tibia Achievement Tracker</title>
+  <link rel="stylesheet" href="styles.css?v=20260708-24">
+</head>
+<body>
+  <main class="shell achievement-shell">
+    <nav class="site-nav" aria-label="Tools">
+      <a class="site-nav-link" href="index.html">Equipment Finder</a>
+      <a class="site-nav-link" href="speed-breakpoint.html">Speed Breakpoint Calculator</a>
+      <a class="site-nav-link" href="quest-suggester.html">Quest Suggest...er <span class="beta-tag">Beta</span></a>
+      <a class="site-nav-link active" href="achievement-tracker.html">Achievement Tracker <span class="beta-tag">Beta</span></a>
+    </nav>
+
+    <header class="hero achievement-hero">
+      <p class="eyebrow">Tibia completion planning</p>
+      <h1>Achievement Tracker</h1>
+      <p class="intro">Paste achievement text to mark completions, then use them to infer likely completed quests. Rich Tibia page pastes can distinguish completed achievements from greyed-out entries.</p>
+    </header>
+
+    <section id="achievementImportPanel" class="panel achievement-import" aria-label="Achievement import">
+      <label>
+        Completed achievement text
+        <textarea id="achievementImportText" rows="8" placeholder="Paste copied achievement text here"></textarea>
+      </label>
+      <div class="achievement-import-actions">
+        <button id="achievementImportButton" class="secondary-button" type="button">Import achievements</button>
+        <button id="achievementShowImportButton" class="secondary-button" type="button" hidden>Paste another import</button>
+        <button id="achievementClearButton" class="secondary-button" type="button">Clear completed</button>
+        <p id="achievementImportSummary"></p>
+      </div>
+    </section>
+
+    <section class="panel achievement-controls" aria-label="Achievement filters">
+      <label>
+        Search
+        <input id="achievementSearch" type="search" placeholder="Achievement, spoiler, quest">
+      </label>
+      <label>
+        Status
+        <select id="achievementStatus">
+          <option value="all">All</option>
+          <option value="open">Open</option>
+          <option value="done">Completed</option>
+        </select>
+      </label>
+      <label>
+        Grade
+        <select id="achievementGrade">
+          <option value="all">Any grade</option>
+          <option value="1">Grade 1</option>
+          <option value="2">Grade 2</option>
+          <option value="3">Grade 3</option>
+          <option value="4">Grade 4</option>
+        </select>
+      </label>
+      <label class="checkbox-label achievement-hide-quest-linked">
+        View
+        <span class="toggle-row">
+          <input id="achievementHideQuestLinked" type="checkbox">
+          <span>Hide quest-linked</span>
+        </span>
+      </label>
+      <label class="checkbox-label achievement-hide-unavailable">
+        Availability
+        <span class="toggle-row">
+          <input id="achievementHideUnavailable" type="checkbox" checked>
+          <span>Hide unavailable</span>
+        </span>
+      </label>
+    </section>
+
+    <section class="quest-summary-grid achievement-summary-grid" aria-live="polite">
+      <button class="quest-stat" type="button" data-achievement-view="done">
+        <span>Completed</span>
+        <strong id="achievementDoneCount">0</strong>
+      </button>
+      <button class="quest-stat" type="button" data-achievement-view="open">
+        <span>Open</span>
+        <strong id="achievementOpenCount">0</strong>
+      </button>
+      <button class="quest-stat" type="button" data-achievement-view="all">
+        <span>Visible</span>
+        <strong id="achievementVisibleCount">0</strong>
+      </button>
+      <button class="quest-stat" type="button" data-achievement-view="quest-linked">
+        <span>Quest-linked</span>
+        <strong id="achievementQuestLinkedCount">0</strong>
+      </button>
+      <button class="quest-stat" type="button" data-achievement-view="unavailable">
+        <span>Unavailable</span>
+        <strong id="achievementUnavailableCount">0</strong>
+      </button>
+    </section>
+
+    <section class="results-head achievement-results-head">
+      <div>
+        <div class="results-title-row">
+          <h2 id="achievementResultsTitle">Achievements</h2>
+        </div>
+        <p id="achievementSummary"></p>
+      </div>
+    </section>
+
+    <section id="achievementResults" class="achievement-results" aria-live="polite"></section>
+  </main>
+
+  <script src="data/achievements.js?v=20260708-24"></script>
+  <script src="achievement-tracker.js?v=20260708-24"></script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Wheel of Destiny Planner</title>
+  <link rel="stylesheet" href="styles.css?v=20260709-2">
+</head>
+<body>
+  <main class="shell wheel-shell">
+    <nav class="site-nav" aria-label="Tools">
+      <a class="site-nav-link" href="index.html">Equipment Finder</a>
+      <a class="site-nav-link" href="speed-breakpoint.html">Speed Breakpoint Calculator</a>
+      <a class="site-nav-link" href="quest-suggester.html">Quest Suggest...er <span class="beta-tag">Beta</span></a>
+      <a class="site-nav-link" href="achievement-tracker.html">Achievement Tracker <span class="beta-tag">Beta</span></a>
+      <a class="site-nav-link active" href="wheel-planner.html">Wheel Planner <span class="beta-tag">Beta</span></a>
+    </nav>
+
+    <header class="hero wheel-hero">
+      <p class="eyebrow">Wheel of Destiny routing</p>
+      <h1>Wheel Planner</h1>
+      <p class="intro">Choose your vocation, level and goal. The planner finds a sensible breakpoint build, paints the wheel, and links the closest official Tibia planner setup.</p>
+    </header>
+
+    <section class="panel wheel-controls" aria-label="Wheel planner controls">
+      <label>
+        Vocation
+        <select id="wheelVocation">
+          <option value="knight" selected>Knight</option>
+          <option value="paladin">Paladin</option>
+          <option value="sorcerer">Sorcerer</option>
+          <option value="druid">Druid</option>
+          <option value="monk">Monk</option>
+        </select>
+      </label>
+
+      <label>
+        Level
+        <input id="wheelLevel" type="number" min="1" value="625">
+      </label>
+
+      <label>
+        Extra points
+        <input id="wheelExtraPoints" type="number" min="0" value="0">
+      </label>
+
+      <label>
+        Optimise
+        <select id="wheelGoal"></select>
+      </label>
+    </section>
+
+    <section class="wheel-layout" aria-live="polite">
+      <div class="panel wheel-picture-panel">
+        <div class="wheel-picture-head">
+          <div>
+            <h2 id="wheelPlanTitle">Recommended wheel</h2>
+            <p id="wheelPointSummary"></p>
+          </div>
+          <a id="wheelOfficialLink" class="secondary-button" href="https://www.tibia.com/community/?subtopic=wheelofdestinyplanner" target="_blank" rel="noopener noreferrer">Official planner</a>
+        </div>
+        <div id="wheelGraphic" class="wheel-graphic" aria-label="Recommended Wheel of Destiny investment picture"></div>
+      </div>
+
+      <aside class="panel wheel-recommendation" aria-label="Wheel recommendation">
+        <div id="wheelVerdict"></div>
+        <div id="wheelStats" class="wheel-stat-grid"></div>
+        <div id="wheelPerkSummary"></div>
+        <div id="wheelWhy"></div>
+      </aside>
+    </section>
+
+    <section class="panel wheel-breakpoints" aria-label="Wheel build breakpoints">
+      <div class="wheel-breakpoint-head">
+        <div>
+          <h2>Comparison builds</h2>
+          <p>Reference rows from TibiaPal are shown only as sanity checks. The recommendation above is generated from wheel node data and spends your available points.</p>
+        </div>
+        <a href="https://tibiapal.com/wheels" target="_blank" rel="noopener noreferrer">TibiaPal builds</a>
+      </div>
+      <div id="wheelBreakpointList" class="wheel-breakpoint-list"></div>
+    </section>
+  </main>
+
+  <script src="wheel-planner.js?v=20260709-12"></script>
+</body>
+</html>

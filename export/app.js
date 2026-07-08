@@ -2,6 +2,7 @@ const RAW_ITEMS = Array.isArray(window.TIBIA_ITEMS) ? window.TIBIA_ITEMS : [];
 let items = normalizeItems(RAW_ITEMS);
 
 const HIDDEN_STORAGE_KEY = "tibiaGearFinder.hiddenItems.v1";
+const FINDER_EQUIPMENT_STORAGE_KEY = "tibiaGearFinder.selectedEquipment.v1";
 const permanentlyHidden = loadPermanentHidden();
 let temporarilyHidden = new Set();
 let selectedEquipment = {};
@@ -439,17 +440,38 @@ const els = {
   hiddenList: document.querySelector("#hiddenList"),
   hiddenCount: document.querySelector("#hiddenCount"),
   clearHiddenButton: document.querySelector("#clearHiddenButton"),
+  speedNavLink: document.querySelector(".site-nav-link[href^='speed-breakpoint.html']"),
+  speedVocation: document.querySelector("#speedVocation"),
+  speedLevel: document.querySelector("#speedLevel"),
+  extraSpeed: document.querySelector("#extraSpeed"),
+  speedTemporaryBoost: document.querySelector("#speedTemporaryBoost"),
+  speedMounted: document.querySelector("#speedMounted"),
+  useFinderEquipment: document.querySelector("#useFinderEquipment"),
+  showLevelDeltas: document.querySelector("#showLevelDeltas"),
+  speedManualEquipment: document.querySelector("#speedManualEquipment"),
+  totalSpeed: document.querySelector("#totalSpeed"),
+  speedSummary: document.querySelector("#speedSummary"),
+  speedEquipmentSummary: document.querySelector("#speedEquipmentSummary"),
+  speedBreakpointTable: document.querySelector("#speedBreakpointTable"),
 };
 
-init();
-
 function init() {
+  if (els.results) {
+    initFinder();
+    return;
+  }
+
+  if (els.speedBreakpointTable) {
+    initSpeedCalculator();
+  }
+}
+
+function initFinder() {
   els.slot.innerHTML = slots.map(slot => `<option value="${slot}">${slotLabels[slot]}</option>`).join("");
-  renderWeaponTypeOptions(true);
-  applyWeaponTypeHandDefaults(true);
   els.priority.innerHTML = Object.entries(priorities)
     .map(([key, value]) => `<option value="${key}">${value.label}</option>`)
     .join("");
+  restoreFinderState();
 
   els.vocation.addEventListener("input", () => {
     renderWeaponTypeOptions(true);
@@ -458,12 +480,18 @@ function init() {
     render();
   });
 
-  for (const el of [els.level, els.mode, els.slot, els.priority, els.twoHanded, els.resultLimit]) {
+  for (const el of [els.level, els.mode, els.slot, els.twoHanded, els.resultLimit]) {
     el.addEventListener("input", () => {
       temporarilyHidden = new Set();
       render();
     });
   }
+
+  els.priority.addEventListener("input", () => {
+    selectedEquipment = {};
+    temporarilyHidden = new Set();
+    render();
+  });
 
   els.showDrops.addEventListener("input", render);
 
@@ -894,7 +922,9 @@ function render() {
   const level = toNumber(els.level.value, 0);
   const resultLimit = getSelectedResultLimit();
   els.resultLimitValue.textContent = String(resultLimit);
-  renderEquipmentPreview(priorityKey);
+  const previewEquipment = renderEquipmentPreview(priorityKey);
+  const finderState = saveFinderEquipment(previewEquipment, { vocation, level, priorityKey });
+  updateSpeedNavLink(finderState);
   renderHiddenItems();
   els.slotLabel.style.display = mode === "full" ? "none" : "grid";
 
@@ -951,6 +981,7 @@ function renderEquipmentPreview(priorityKey) {
     return `<button class="equipment-slot equipment-${cell.key}${selectedClass}" type="button" data-slot="${escapeAttr(cell.slot)}"${itemId} aria-label="${escapeAttr(label)}">${content}</button>`;
   }).join("");
   clearEquipmentHover();
+  return equipment;
 }
 
 function renderEquipmentHoverCard(item) {
@@ -1438,6 +1469,95 @@ function savePermanentHidden() {
   localStorage.setItem(HIDDEN_STORAGE_KEY, JSON.stringify([...permanentlyHidden]));
 }
 
+function saveFinderEquipment(equipment, settings) {
+  try {
+    const state = buildFinderState(equipment, settings);
+    localStorage.setItem(FINDER_EQUIPMENT_STORAGE_KEY, JSON.stringify(state));
+    return state;
+  } catch {
+    // Local storage is optional; the calculator can still run manually.
+    return buildFinderState(equipment, settings);
+  }
+}
+
+function buildFinderState(equipment, settings) {
+  const ids = {};
+  for (const [slot, item] of Object.entries(equipment || {})) {
+    if (item?.id && slot !== "backpack") ids[slot] = item.id;
+  }
+  return {
+    ids,
+    selectedIds: { ...selectedEquipment },
+    vocation: settings?.vocation || "",
+    level: toNumber(settings?.level, 0),
+    priority: settings?.priorityKey || "",
+    mode: els.mode?.value || "full",
+    slot: els.slot?.value || "weapon",
+    resultLimit: getSelectedResultLimit(),
+    weaponType: els.weaponType?.value || "",
+    twoHanded: !!els.twoHanded?.checked,
+    showDrops: els.showDrops?.checked !== false,
+    savedAt: new Date().toISOString(),
+  };
+}
+
+function updateSpeedNavLink(state) {
+  if (!els.speedNavLink || !state) return;
+  const encoded = encodeFinderState(state);
+  els.speedNavLink.href = encoded ? `speed-breakpoint.html?finder=${encoded}` : "speed-breakpoint.html";
+}
+
+function encodeFinderState(state) {
+  try {
+    return encodeURIComponent(btoa(JSON.stringify(state)));
+  } catch {
+    return "";
+  }
+}
+
+function restoreFinderState() {
+  const state = loadFinderEquipment();
+  const storedSelectedIds = state.selectedIds && typeof state.selectedIds === "object" ? state.selectedIds : null;
+  const storedEquipmentIds = state.ids && typeof state.ids === "object" ? state.ids : {};
+  const selectedIds = storedSelectedIds || storedEquipmentIds;
+  selectedEquipment = {};
+  for (const [slot, id] of Object.entries(selectedIds)) {
+    if (slots.includes(slot) && items.some(item => item.id === id)) {
+      selectedEquipment[slot] = id;
+    }
+  }
+
+  setControlValue(els.vocation, state.vocation);
+  renderWeaponTypeOptions(true);
+  setControlValue(els.level, state.level);
+  setControlValue(els.mode, state.mode);
+  setControlValue(els.slot, state.slot);
+  setControlValue(els.priority, state.priority);
+  setControlValue(els.resultLimit, state.resultLimit);
+  setControlValue(els.weaponType, state.weaponType);
+
+  if (typeof state.twoHanded === "boolean") {
+    els.twoHanded.checked = state.twoHanded;
+    updateHandControlVisibility();
+  } else {
+    applyWeaponTypeHandDefaults(true);
+  }
+
+  if (typeof state.showDrops === "boolean") {
+    els.showDrops.checked = state.showDrops;
+  }
+}
+
+function setControlValue(control, value) {
+  if (!control || value === undefined || value === null || value === "") return;
+  const nextValue = String(value);
+  if (control.tagName === "SELECT") {
+    const hasOption = [...control.options].some(option => option.value === nextValue);
+    if (!hasOption) return;
+  }
+  control.value = nextValue;
+}
+
 function handleResultClick(event) {
   const button = event.target.closest("button[data-action]");
   if (!button) {
@@ -1527,3 +1647,336 @@ function renderHiddenItems() {
       </div>`;
   }).join("");
 }
+
+const speedBreakpoints = [
+  {
+    label: "Peninsula Tomb maze",
+    friction: 70,
+    thresholds: [null, null, null, null, null, null, null, null, null, null, null, null, 111, 142, 200, 342, 1070],
+  },
+  {
+    label: "Drawbridges",
+    friction: 90,
+    thresholds: [null, null, null, null, null, null, null, null, null, null, null, 120, 147, 192, 278, 499, 1842],
+  },
+  {
+    label: "Tile with 95 friction",
+    friction: 95,
+    thresholds: [null, null, null, null, null, null, null, null, null, null, null, 127, 157, 205, 299, 543, 2096],
+  },
+  {
+    label: "Cobbled, stone and marble",
+    friction: 100,
+    thresholds: [null, null, null, null, null, null, null, null, null, null, 113, 135, 167, 219, 321, 592, 2382],
+  },
+  {
+    label: "Dirt (Light)",
+    friction: 110,
+    thresholds: [null, null, null, null, null, null, null, null, null, null, 126, 150, 187, 248, 367, 696, 3060],
+  },
+  {
+    label: "Hive, Rotten Wasteland",
+    friction: 125,
+    thresholds: [null, null, null, null, null, null, null, null, null, null, 146, 175, 219, 293, 444, 876, 4419],
+  },
+  {
+    label: "Dirt (Medium)",
+    friction: 140,
+    thresholds: [null, null, null, null, null, null, null, 111, 125, 143, 167, 201, 254, 344, 531, 1092, 6341],
+  },
+  {
+    label: "Grass, gravel and rift floors",
+    friction: 150,
+    thresholds: [null, null, null, null, null, null, null, 120, 135, 155, 181, 219, 278, 380, 595, 1258, 8036],
+  },
+  {
+    label: "Sand and snow",
+    friction: 160,
+    thresholds: [null, null, null, null, null, null, 116, 129, 145, 167, 196, 238, 304, 419, 663, 1443, 10167],
+  },
+  {
+    label: "Dirt (Heavy)",
+    friction: 200,
+    thresholds: [null, null, null, 114, 124, 135, 149, 167, 190, 219, 261, 322, 419, 597, 998, 2444, 25761],
+  },
+  {
+    label: "Underwater",
+    friction: 250,
+    thresholds: [117, 126, 135, 146, 160, 175, 195, 220, 252, 295, 356, 446, 598, 884, 1591, 4557, 81351],
+  },
+];
+
+const movementMsByBreakpoint = [850, 800, 750, 700, 650, 600, 550, 500, 450, 400, 350, 300, 250, 200, 150, 100, 50];
+const speedManualSlots = ["boots", "armor", "legs", "shield", "ring", "amulet"];
+const speedTemporaryBoostOptions = [
+  { id: "", label: "None", percent: 0 },
+  { id: "haste", label: "Haste (Utani Hur)", type: "spell", percent: 30 },
+  { id: "strong-haste", label: "Strong Haste (Druid/Sorcerer)", type: "spell", percent: 70, vocations: ["druid", "sorcerer"] },
+  { id: "charge", label: "Charge (Knight)", type: "spell", percent: 90, vocations: ["knight"] },
+  { id: "swift-foot", label: "Swift Foot (Paladin)", type: "spell", percent: 80, vocations: ["paladin"] },
+  { id: "adrenaline-burst", label: "Adrenaline Burst", type: "charm", percent: 150 },
+  { id: "demonic-candy-ball", label: "Demonic Candy Ball speed roll", type: "food", speed: 50 },
+  { id: "chilli-con-carniphila", label: "Chilli Con Carniphila", type: "food", speed: 80 },
+  { id: "filled-jalapeno-peppers", label: "Filled Jalapeno Peppers", type: "food", speed: 100 },
+];
+function initSpeedCalculator() {
+  const finderState = loadFinderEquipment();
+  if (finderState && Object.keys(finderState).length) {
+    saveLoadedFinderState(finderState);
+  }
+  if (finderState?.vocation) setControlValue(els.speedVocation, finderState.vocation);
+  if (finderState?.level) els.speedLevel.value = String(finderState.level);
+  renderSpeedBonusOptions();
+  renderSpeedManualEquipment();
+
+  for (const el of [els.speedVocation, els.speedLevel]) {
+    el?.addEventListener("input", () => {
+      renderSpeedBonusOptions();
+      renderSpeedManualEquipment();
+      renderSpeedCalculator();
+    });
+  }
+  for (const el of [els.extraSpeed, els.speedTemporaryBoost, els.speedMounted, els.useFinderEquipment, els.showLevelDeltas]) {
+    el?.addEventListener("input", renderSpeedCalculator);
+  }
+  els.speedManualEquipment?.addEventListener("input", renderSpeedCalculator);
+  window.addEventListener("storage", event => {
+    if (event.key === FINDER_EQUIPMENT_STORAGE_KEY && els.useFinderEquipment?.checked) {
+      renderSpeedCalculator();
+    }
+  });
+
+  renderSpeedCalculator();
+}
+
+function renderSpeedBonusOptions() {
+  renderSpeedSelectOptions(els.speedTemporaryBoost, getAvailableSpeedTemporaryBoostOptions());
+}
+
+function renderSpeedSelectOptions(select, options) {
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = options.map(option => {
+    const suffix = option.percent ? ` (+${option.percent}%)` : option.speed ? ` (${fmtSigned(option.speed)})` : "";
+    return `<option value="${escapeAttr(option.id)}">${escapeHtml(option.label + suffix)}</option>`;
+  }).join("");
+  select.value = options.some(option => option.id === current) ? current : "";
+}
+
+function getAvailableSpeedTemporaryBoostOptions() {
+  const vocation = getSpeedVocation();
+  return speedTemporaryBoostOptions.filter(option => !option.vocations || option.vocations.includes(vocation));
+}
+
+function renderSpeedManualEquipment() {
+  if (!els.speedManualEquipment) return;
+  const vocation = getSpeedVocation();
+  const level = Math.max(1, toNumber(els.speedLevel?.value, 1));
+  const speedItems = items.filter(item => toNumber(item.attributes?.speed, 0) !== 0 && canUseItem(item, vocation, level));
+  els.speedManualEquipment.innerHTML = `
+    <div class="speed-manual-head">
+      <h2>Manual speed gear</h2>
+      <p>Used when finder gear is off. Filtered for ${escapeHtml(titleCase(vocation))}, level ${level.toLocaleString()}.</p>
+    </div>
+    <div class="speed-manual-grid">
+      ${speedManualSlots.map(slot => renderSpeedSlotSelect(slot, speedItems)).join("")}
+    </div>`;
+}
+
+function renderSpeedSlotSelect(slot, speedItems) {
+  const slotItems = speedItems
+    .filter(item => item.slot === slot)
+    .sort((a, b) => toNumber(b.attributes?.speed, 0) - toNumber(a.attributes?.speed, 0) || a.name.localeCompare(b.name));
+  return `
+    <label>
+      ${escapeHtml(slotLabels[slot] || titleCase(slot))}
+      <select data-speed-slot="${escapeAttr(slot)}">
+        <option value="">None</option>
+        ${slotItems.map(item => `<option value="${escapeAttr(item.id)}">${escapeHtml(item.name)} (${fmtSigned(item.attributes.speed)})</option>`).join("")}
+      </select>
+    </label>`;
+}
+
+function renderSpeedCalculator() {
+  const level = Math.max(1, toNumber(els.speedLevel?.value, 1));
+  const vocation = getSpeedVocation();
+  const baseSpeed = getBaseCharacterSpeed(level);
+  const extraSpeed = toNumber(els.extraSpeed?.value, 0);
+  const temporaryBoostSpeed = getSelectedTemporaryBoostSpeed(baseSpeed);
+  const mountSpeed = els.speedMounted?.checked ? 10 : 0;
+  const usingFinder = els.useFinderEquipment?.checked !== false;
+  const equipment = usingFinder ? getFinderEquipmentItems() : getManualSpeedEquipmentItems();
+  const equipmentSpeed = getEquipmentSpeed(equipment);
+  const totalSpeed = baseSpeed + equipmentSpeed + temporaryBoostSpeed + mountSpeed + extraSpeed;
+
+  if (els.speedManualEquipment) {
+    els.speedManualEquipment.style.display = usingFinder ? "none" : "block";
+  }
+  els.totalSpeed.textContent = totalSpeed.toLocaleString();
+  els.speedSummary.textContent = `${titleCase(vocation)}, level ${level.toLocaleString()} base ${baseSpeed.toLocaleString()} + equipment ${fmtSigned(equipmentSpeed)} + temporary ${fmtSigned(temporaryBoostSpeed)} + mount ${fmtSigned(mountSpeed)} + extra ${fmtSigned(extraSpeed)}.`;
+  renderSpeedEquipmentSummary(equipment, usingFinder);
+  renderSpeedBreakpointTable(totalSpeed);
+}
+
+function getSelectedTemporaryBoostSpeed(baseSpeed) {
+  const boost = speedTemporaryBoostOptions.find(option => option.id === els.speedTemporaryBoost?.value);
+  if (boost?.percent) return Math.floor(Math.max(0, baseSpeed - 40) * boost.percent / 100);
+  return toNumber(boost?.speed, 0);
+}
+
+function getBaseCharacterSpeed(level) {
+  return 220 + (Math.max(1, level) - 1) * 2;
+}
+
+function getEquivalentLevel(speed) {
+  return Math.max(1, Math.floor((toNumber(speed, 220) - 220) / 2) + 1);
+}
+
+function loadFinderEquipment() {
+  const urlState = loadFinderEquipmentFromUrl();
+  if (urlState) return urlState;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(FINDER_EQUIPMENT_STORAGE_KEY) || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function loadFinderEquipmentFromUrl() {
+  try {
+    const encoded = new URLSearchParams(window.location.search).get("finder");
+    if (!encoded) return null;
+    const parsed = JSON.parse(atob(decodeURIComponent(encoded)));
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveLoadedFinderState(state) {
+  try {
+    localStorage.setItem(FINDER_EQUIPMENT_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // URL-provided finder state is enough for this page load.
+  }
+}
+
+function getSpeedVocation() {
+  return els.speedVocation?.value || loadFinderEquipment().vocation || "knight";
+}
+
+function getFinderEquipmentItems() {
+  const finderState = loadFinderEquipment();
+  const ids = finderState.ids || {};
+  return Object.values(ids)
+    .map(id => items.find(item => item.id === id))
+    .filter(Boolean);
+}
+
+function getManualSpeedEquipmentItems() {
+  if (!els.speedManualEquipment) return [];
+  return [...els.speedManualEquipment.querySelectorAll("[data-speed-slot]")]
+    .map(select => items.find(item => item.id === select.value))
+    .filter(Boolean);
+}
+
+function getEquipmentSpeed(equipment) {
+  return (equipment || []).reduce((sum, item) => sum + toNumber(item.attributes?.speed, 0), 0);
+}
+
+function renderSpeedEquipmentSummary(equipment, usingFinder) {
+  if (!els.speedEquipmentSummary) return;
+  const finderState = loadFinderEquipment();
+  const source = usingFinder
+    ? `Finder gear${finderState.savedAt ? ` saved ${formatSavedTime(finderState.savedAt)}` : ""}`
+    : "Manual gear";
+  const speedItems = (equipment || []).filter(item => toNumber(item.attributes?.speed, 0) !== 0);
+  const visibleItems = usingFinder ? (equipment || []) : speedItems;
+  els.speedEquipmentSummary.innerHTML = `
+    <div class="speed-source">${escapeHtml(source)}</div>
+    ${visibleItems.length
+      ? `<div class="speed-gear-list">${visibleItems.map(renderSpeedGearPill).join("")}</div>`
+      : `<p class="muted-text">No equipment selected.</p>`}
+    ${visibleItems.length && !speedItems.length ? `<p class="muted-text speed-note">Selected equipment has no speed bonuses.</p>` : ""}`;
+}
+
+function renderSpeedGearPill(item) {
+  const imageUrl = safeImageUrl(item.imageUrl);
+  const image = imageUrl ? `<img src="${escapeAttr(imageUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : "";
+  return `<span class="speed-gear-pill">${image}${escapeHtml(item.name)} <strong>${fmtSigned(item.attributes.speed)}</strong></span>`;
+}
+
+function formatSavedTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function renderSpeedBreakpointTable(totalSpeed) {
+  if (!els.speedBreakpointTable) return;
+  const equivalentLevel = getEquivalentLevel(totalSpeed);
+  const showLevelDeltas = els.showLevelDeltas?.checked;
+  const headCells = movementMsByBreakpoint
+    .map((ms, index) => `<th scope="col">BP ${index + 1}<span>${ms}ms</span></th>`)
+    .join("");
+  const rows = speedBreakpoints.map(terrain => renderSpeedTerrainRow(terrain, totalSpeed, showLevelDeltas)).join("");
+  const note = showLevelDeltas
+    ? "Table values show level difference from your current total speed if all non-level bonuses stay the same."
+    : "Table values show required total speed.";
+  els.speedBreakpointTable.innerHTML = `
+    <div class="speed-equivalent">Runs like roughly level ${equivalentLevel.toLocaleString()} before other temporary effects. ${note}</div>
+    <table class="speed-breakpoint-table">
+      <thead>
+        <tr>
+          <th scope="col">Terrain</th>
+          <th scope="col">Friction</th>
+          ${headCells}
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function renderSpeedTerrainRow(terrain, totalSpeed, showLevelDeltas = false) {
+  const currentIndex = getCurrentBreakpointIndex(terrain.thresholds, totalSpeed);
+  const nextIndex = getNextBreakpointIndex(terrain.thresholds, totalSpeed);
+  const cells = terrain.thresholds.map((threshold, index) => {
+    const classes = [
+      index === currentIndex ? "current-breakpoint" : "",
+      index === nextIndex ? "next-breakpoint" : "",
+      threshold !== null && threshold <= totalSpeed ? "reached-breakpoint" : "",
+    ].filter(Boolean).join(" ");
+    const label = getSpeedTableCellLabel(threshold, totalSpeed, showLevelDeltas, index, currentIndex);
+    return `<td class="${classes}">${label}</td>`;
+  }).join("");
+  return `
+    <tr>
+      <th scope="row">${escapeHtml(terrain.label)}</th>
+      <td>${terrain.friction}</td>
+      ${cells}
+    </tr>`;
+}
+
+function getSpeedTableCellLabel(threshold, totalSpeed, showLevelDeltas, index, currentIndex) {
+  if (threshold === null) return "-";
+  if (!showLevelDeltas) return threshold.toLocaleString();
+  if (index === currentIndex) return `<span class="checkmark" aria-label="Current breakpoint">✓</span>`;
+  const speedGap = threshold - totalSpeed;
+  const levelGap = speedGap > 0 ? Math.ceil(speedGap / 2) : Math.floor(speedGap / 2);
+  return levelGap > 0 ? `+${levelGap.toLocaleString()}` : levelGap.toLocaleString();
+}
+
+function getCurrentBreakpointIndex(thresholds, totalSpeed) {
+  let current = -1;
+  thresholds.forEach((threshold, index) => {
+    if (threshold !== null && threshold <= totalSpeed) current = index;
+  });
+  return current;
+}
+
+function getNextBreakpointIndex(thresholds, totalSpeed) {
+  return thresholds.findIndex(threshold => threshold !== null && threshold > totalSpeed);
+}
+
+init();

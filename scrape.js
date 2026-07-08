@@ -10,9 +10,16 @@ const EXPORT_DATA_DIR = path.join(EXPORT_DIR, "data");
 const EXPORT_FILES = [
   [".htaccess", path.join(EXPORT_DIR, ".htaccess")],
   ["app.js", path.join(EXPORT_DIR, "app.js")],
+  ["achievement-tracker.js", path.join(EXPORT_DIR, "achievement-tracker.js")],
+  ["quest-suggester.js", path.join(EXPORT_DIR, "quest-suggester.js")],
+  ["achievement-tracker.html", path.join(EXPORT_DIR, "achievement-tracker.html")],
   ["index.html", path.join(EXPORT_DIR, "index.html")],
+  ["quest-suggester.html", path.join(EXPORT_DIR, "quest-suggester.html")],
+  ["speed-breakpoint.html", path.join(EXPORT_DIR, "speed-breakpoint.html")],
   ["styles.css", path.join(EXPORT_DIR, "styles.css")],
-  [JS_OUT, path.join(EXPORT_DATA_DIR, "items.js")]
+  [JS_OUT, path.join(EXPORT_DATA_DIR, "items.js")],
+  [path.join(OUT_DIR, "quests.js"), path.join(EXPORT_DATA_DIR, "quests.js")],
+  [path.join(OUT_DIR, "achievements.js"), path.join(EXPORT_DATA_DIR, "achievements.js")]
 ];
 const CACHE_DIR = path.resolve("cache");
 const BASE = "https://tibia.fandom.com";
