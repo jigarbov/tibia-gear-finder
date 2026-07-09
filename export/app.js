@@ -7,6 +7,7 @@ const permanentlyHidden = loadPermanentHidden();
 let temporarilyHidden = new Set();
 let selectedEquipment = {};
 let collapsedSlots = new Set();
+let equipmentFallbackReasons = {};
 
 const DEFAULT_RESULTS_PER_SLOT = 5;
 const damageTypeIcons = {
@@ -19,7 +20,7 @@ const damageTypeIcons = {
 };
 const generalResistanceTypes = ["physical", "fire", "ice", "energy", "earth", "holy", "death"];
 
-const slots = ["weapon", "shield", "ammo", "helmet", "armor", "legs", "boots", "ring", "amulet"];
+const slots = ["weapon", "shield", "extra", "helmet", "armor", "legs", "boots", "ring", "amulet"];
 const fallbackBackpacks = [
   {
     id: "fallback-backpack",
@@ -56,6 +57,7 @@ const slotLabels = {
   weapon: "Weapon",
   shield: "Off-hand",
   ammo: "Ammunition",
+  extra: "Extra",
   helmet: "Helmet",
   armor: "Armor",
   legs: "Legs",
@@ -130,13 +132,22 @@ const priorities = {
           ["totalResistance", "desc"],
           ["weight", "asc"],
         ]
-      : vocation === "paladin"
+      : vocation === "paladin" && (slot === "weapon" || slot === "ammo")
         ? [
             ["attributes.distance", "desc"],
             ["vocationDamageBoost", "desc"],
             ["attackMod", "desc"],
             ["attack", "desc"],
             ["range", "desc"],
+            ["effectivePhysicalDefense", "desc"],
+            ["totalResistance", "desc"],
+            ["weight", "asc"],
+          ]
+      : vocation === "paladin"
+        ? [
+            ["balancedWearableScore", "desc"],
+            ["attributes.distance", "desc"],
+            ["vocationDamageBoost", "desc"],
             ["effectivePhysicalDefense", "desc"],
             ["totalResistance", "desc"],
             ["weight", "asc"],
@@ -184,6 +195,8 @@ const priorities = {
       ["totalAttack", "desc"],
       ["attackMod", "desc"],
       ["hitPercent", "desc"],
+      ["effectivePhysicalDefense", "desc"],
+      ["totalResistance", "desc"],
       ["weight", "asc"],
     ],
   },
@@ -195,6 +208,8 @@ const priorities = {
       ["totalAttack", "desc"],
       ["attackMod", "desc"],
       ["hitPercent", "desc"],
+      ["effectivePhysicalDefense", "desc"],
+      ["totalResistance", "desc"],
       ["weight", "asc"],
     ],
   },
@@ -206,6 +221,8 @@ const priorities = {
       ["totalAttack", "desc"],
       ["attackMod", "desc"],
       ["hitPercent", "desc"],
+      ["effectivePhysicalDefense", "desc"],
+      ["totalResistance", "desc"],
       ["weight", "asc"],
     ],
   },
@@ -217,6 +234,8 @@ const priorities = {
       ["totalAttack", "desc"],
       ["attackMod", "desc"],
       ["hitPercent", "desc"],
+      ["effectivePhysicalDefense", "desc"],
+      ["totalResistance", "desc"],
       ["weight", "asc"],
     ],
   },
@@ -228,6 +247,8 @@ const priorities = {
       ["totalAttack", "desc"],
       ["attackMod", "desc"],
       ["hitPercent", "desc"],
+      ["effectivePhysicalDefense", "desc"],
+      ["totalResistance", "desc"],
       ["weight", "asc"],
     ],
   },
@@ -239,6 +260,8 @@ const priorities = {
       ["totalAttack", "desc"],
       ["attackMod", "desc"],
       ["hitPercent", "desc"],
+      ["effectivePhysicalDefense", "desc"],
+      ["totalResistance", "desc"],
       ["weight", "asc"],
     ],
   },
@@ -393,12 +416,12 @@ const priorityChecks = {
   balanced: () => true,
   light: item => toNumber(item.weight, 0) > 0,
   attack: (item, vocation) => getVocationDamageBoost(item, vocation) > 0 || getTotalAttack(item) > 0 || toNumber(item.attackMod, 0) > 0 || toNumber(item.hitPercent, 0) > 0 || toNumber(item.shotDamageAverage, 0) > 0,
-  attackPhysical: (item, vocation) => getAttackByType(item, "physical") > 0 || getVocationDamageBoost(item, vocation) > 0,
-  attackFire: (item, vocation) => getAttackByType(item, "fire") > 0 || getVocationDamageBoost(item, vocation) > 0,
-  attackIce: (item, vocation) => getAttackByType(item, "ice") > 0 || getVocationDamageBoost(item, vocation) > 0,
-  attackEnergy: (item, vocation) => getAttackByType(item, "energy") > 0 || getVocationDamageBoost(item, vocation) > 0,
-  attackEarth: (item, vocation) => getAttackByType(item, "earth") > 0 || getVocationDamageBoost(item, vocation) > 0,
-  attackDeath: (item, vocation) => getAttackByType(item, "death") > 0 || getVocationDamageBoost(item, vocation) > 0,
+  attackPhysical: (item, vocation) => isElementalAttackMatch(item, "physical", vocation),
+  attackFire: (item, vocation) => isElementalAttackMatch(item, "fire", vocation),
+  attackIce: (item, vocation) => isElementalAttackMatch(item, "ice", vocation),
+  attackEnergy: (item, vocation) => isElementalAttackMatch(item, "energy", vocation),
+  attackEarth: (item, vocation) => isElementalAttackMatch(item, "earth", vocation),
+  attackDeath: (item, vocation) => isElementalAttackMatch(item, "death", vocation),
   range: item => toNumber(item.range, 0) > 0,
   armor: item => getEffectivePhysicalDefense(item) > 0 || toNumber(item.armor, 0) > 0 || toNumber(item.defense, 0) > 0,
   distance: item => toNumber(item.attributes?.distance, 0) > 0,
@@ -424,6 +447,7 @@ const els = {
   slot: document.querySelector("#slot"),
   slotLabel: document.querySelector("#slotLabel"),
   priority: document.querySelector("#priority"),
+  prioritizeVocation: document.querySelector("#prioritizeVocation"),
   weaponType: document.querySelector("#weaponType"),
   twoHanded: document.querySelector("#twoHanded"),
   showDrops: document.querySelector("#showDrops"),
@@ -480,7 +504,7 @@ function initFinder() {
     render();
   });
 
-  for (const el of [els.level, els.mode, els.slot, els.twoHanded, els.resultLimit]) {
+  for (const el of [els.level, els.mode, els.slot, els.twoHanded, els.resultLimit, els.prioritizeVocation]) {
     el.addEventListener("input", () => {
       temporarilyHidden = new Set();
       render();
@@ -541,6 +565,8 @@ function normalizeItems(raw) {
     shotDamageAverage: toNumber(item.shotDamageAverage, 0),
     manaPerShot: toNumber(item.manaPerShot, 0),
     weight: toNumber(item.weight, 0),
+    duration: item.duration || "",
+    charges: toNumber(item.charges, 0),
     imbuementSlots: toNumber(item.imbuementSlots, 0),
     attributes: item.attributes || {},
     resistances: item.resistances || {},
@@ -657,6 +683,12 @@ function getStat(item, path, vocation) {
   if (path === "vocationDamageBoost") {
     return getVocationDamageBoost(item, vocation);
   }
+  if (path === "vocationEquipmentPriority") {
+    return getVocationEquipmentPriority(item, vocation);
+  }
+  if (path === "limitedChargePenalty") {
+    return getLimitedChargePenalty(item);
+  }
   return path.split(".").reduce((obj, key) => obj?.[key], item) ?? 0;
 }
 
@@ -696,6 +728,36 @@ function getAttackByType(item, type) {
   return 0;
 }
 
+function isElementalAttackMatch(item, type, vocation) {
+  if (item.slot === "weapon" || item.slot === "ammo") {
+    return getAttackByType(item, type) > 0;
+  }
+
+  return getVocationDamageBoost(item, vocation) > 0 && hasElementalAttackSource(type);
+}
+
+function hasElementalAttackSource(type) {
+  return hasSelectedElementalAttackSource("weapon", type)
+    || hasSelectedElementalAttackSource("ammo", type)
+    || hasAvailableElementalAttackSource("weapon", type)
+    || (getOffHandSlot() === "ammo" && hasAvailableElementalAttackSource("shield", type));
+}
+
+function hasSelectedElementalAttackSource(slot, type) {
+  const selectedId = selectedEquipment[slot];
+  if (!selectedId) return false;
+  return getFiltered(slot === "ammo" ? "shield" : slot)
+    .some(item => item.id === selectedId && getAttackByType(item, type) > 0);
+}
+
+function hasAvailableElementalAttackSource(slot, type) {
+  const effectiveSlot = getEffectiveFilterSlot(slot);
+  const filtered = getFiltered(slot);
+  const selectedId = selectedEquipment[effectiveSlot];
+  if (selectedId && filtered.some(item => item.id === selectedId)) return false;
+  return filtered.some(item => getAttackByType(item, type) > 0);
+}
+
 function getEffectivePhysicalDefense(item) {
   // Practical ranking score: one point of physical resistance is treated as
   // roughly one point of equipment defence for sorting purposes. This makes
@@ -711,12 +773,14 @@ function getBalancedShieldScore(item, vocation) {
   const vocationBoost = getVocationDamageBoost(item, vocation);
   const shielding = toNumber(item.attributes?.shielding, 0);
   const weight = toNumber(item.weight, 0);
+  const chargePenalty = getLimitedChargePenalty(item);
 
   return physicalDefense
     + totalResistance * 0.6
     + vocationBoost * 4
     + shielding * 2
-    - weight / 25;
+    - weight / 25
+    - chargePenalty;
 }
 
 function getBalancedWearableScore(item, vocation) {
@@ -726,13 +790,17 @@ function getBalancedWearableScore(item, vocation) {
   const secondaryBoost = getSecondaryGearBoost(item, vocation);
   const shielding = toNumber(item.attributes?.shielding, 0);
   const weight = toNumber(item.weight, 0);
+  const offenseWeight = vocation === "paladin" ? 5 : 4;
+  const resistanceWeight = vocation === "paladin" ? 0.45 : 0.6;
+  const chargePenalty = getLimitedChargePenalty(item);
 
   return physicalDefense
-    + totalResistance * 0.6
-    + vocationBoost * 4
+    + totalResistance * resistanceWeight
+    + vocationBoost * offenseWeight
     + secondaryBoost
     + shielding * 2
-    - weight / 25;
+    - weight / 25
+    - chargePenalty;
 }
 
 function getBalancedArmorScore(item, vocation) {
@@ -742,6 +810,7 @@ function getBalancedArmorScore(item, vocation) {
   const secondaryBoost = getSecondaryGearBoost(item, vocation);
   const shielding = toNumber(item.attributes?.shielding, 0);
   const weight = toNumber(item.weight, 0);
+  const chargePenalty = getLimitedChargePenalty(item);
 
   if (vocation === "knight") {
     const physicalResistance = toNumber(item.resistances?.physical, 0);
@@ -752,7 +821,8 @@ function getBalancedArmorScore(item, vocation) {
       + vocationBoost * 4
       + secondaryBoost
       + shielding * 2
-      - weight / 50;
+      - weight / 50
+      - chargePenalty;
   }
 
   return physicalDefense
@@ -760,7 +830,17 @@ function getBalancedArmorScore(item, vocation) {
     + vocationBoost * 4
     + secondaryBoost
     + shielding * 2
-    - weight / 25;
+    - weight / 25
+    - chargePenalty;
+}
+
+function getLimitedChargePenalty(item) {
+  const charges = toNumber(item.charges, 0);
+  if (!charges || item.slot !== "amulet") return 0;
+  if (charges <= 5) return 160;
+  if (charges <= 10) return 80;
+  if (charges <= 25) return 30;
+  return 0;
 }
 
 function getSecondaryGearBoost(item, vocation) {
@@ -773,6 +853,14 @@ function getSecondaryGearBoost(item, vocation) {
   }
 
   return score;
+}
+
+function getVocationEquipmentPriority(item, vocation) {
+  if (!vocation) return 0;
+  if (item.vocations?.includes(vocation)) return 3;
+  if (getVocationDamageBoost(item, vocation) > 0) return 2;
+  if (getSecondaryGearBoost(item, vocation) > 0) return 1;
+  return 0;
 }
 
 
@@ -813,6 +901,24 @@ function getSelectedWeaponType() {
 
 function getSelectedHandMode() {
   return els.twoHanded?.checked ? "2" : "1";
+}
+
+function getOffHandSlot() {
+  const weaponType = getSelectedWeaponType();
+  return weaponType === "bow" || weaponType === "crossbow" ? "ammo" : "shield";
+}
+
+function getEffectiveFilterSlot(slot) {
+  return slot === "shield" ? getOffHandSlot() : slot;
+}
+
+function getDisplaySlotLabel(slot) {
+  if (slot === "shield" && getOffHandSlot() === "ammo") return slotLabels.ammo;
+  return slotLabels[slot] || titleCase(slot);
+}
+
+function shouldPrioritizeVocationEquipment() {
+  return els.prioritizeVocation?.checked !== false;
 }
 
 function shouldApplyHandFilter(type) {
@@ -872,7 +978,10 @@ function renderWeaponTypeOptions(resetIfIrrelevant = false) {
 
 function getRules(priorityKey, vocation, slot) {
   const rawRules = priorities[priorityKey]?.rules || priorities.balanced.rules;
-  return typeof rawRules === "function" ? rawRules(vocation, slot) : rawRules;
+  const rules = typeof rawRules === "function" ? rawRules(vocation, slot) : rawRules;
+  return shouldPrioritizeVocationEquipment()
+    ? [["vocationEquipmentPriority", "desc"], ...rules]
+    : rules;
 }
 
 function rankItems(sourceItems, priorityKey, vocation) {
@@ -889,21 +998,22 @@ function rankItems(sourceItems, priorityKey, vocation) {
 }
 
 function getFiltered(slot) {
+  const effectiveSlot = getEffectiveFilterSlot(slot);
   const vocation = els.vocation.value;
   const level = toNumber(els.level.value, 0);
   const weaponType = getSelectedWeaponType();
   const handMode = getSelectedHandMode();
 
   return items.filter(item => {
-    if (item.slot !== slot) return false;
+    if (item.slot !== effectiveSlot) return false;
     if (!canUseItem(item, vocation, level)) return false;
 
-    if (slot === "weapon") {
+    if (effectiveSlot === "weapon") {
       if (weaponType !== "any" && item.type !== weaponType) return false;
       if (!isAlwaysTwoHandedWeaponType(item.type) && shouldApplyHandFilter(item.type) && getItemHands(item) !== handMode) return false;
     }
 
-    if (slot === "ammo") {
+    if (effectiveSlot === "ammo") {
       if (weaponType === "bow" && item.ammoType && item.ammoType !== "arrow") return false;
       if (weaponType === "crossbow" && item.ammoType && item.ammoType !== "bolt") return false;
     }
@@ -934,7 +1044,7 @@ function render() {
     renderFullSet(priorityKey, resultLimit);
   } else {
     const slot = els.slot.value;
-    els.resultsTitle.textContent = `Best ${slotLabels[slot].toLowerCase()}`;
+    els.resultsTitle.textContent = `Best ${getDisplaySlotLabel(slot).toLowerCase()}`;
     els.summary.textContent = `${titleCase(vocation)}, level ${level}, prioritising ${priorities[priorityKey].label.toLowerCase()}.`;
     const filtered = getFiltered(slot);
     const { ranked, hasPriorityMatch } = getRankedForSlot(filtered, priorityKey, resultLimit);
@@ -951,16 +1061,18 @@ function renderEquipmentPreview(priorityKey) {
   const equipment = getPreviewEquipment(priorityKey);
   renderEquipmentSummary(equipment);
   if (randomBackpack) equipment.backpack = randomBackpack;
+  const offHandSlot = getOffHandSlot();
+  const offHandLabel = offHandSlot === "ammo" ? "Ammunition" : "Off-hand";
   const cells = [
     { key: "amulet", slot: "amulet", label: "Amulet" },
     { key: "helmet", slot: "helmet", label: "Helmet" },
     { key: "backpack", slot: "backpack", label: "Backpack" },
     { key: "weapon", slot: "weapon", label: "Weapon" },
     { key: "armor", slot: "armor", label: "Armor" },
-    { key: "shield", slot: "shield", label: "Off-hand" },
+    { key: "shield", slot: offHandSlot, actionSlot: "shield", label: offHandLabel },
     { key: "ring", slot: "ring", label: "Ring" },
     { key: "legs", slot: "legs", label: "Legs" },
-    { key: "ammo", slot: "ammo", label: "Ammo" },
+    { key: "ammo", slot: "extra", label: "Extra" },
     { key: "empty-left", slot: "", label: "" },
     { key: "boots", slot: "boots", label: "Boots" },
     { key: "empty-right", slot: "", label: "" },
@@ -976,9 +1088,14 @@ function renderEquipmentPreview(priorityKey) {
     if (!cell.slot || cell.slot === "backpack") {
       return `<div class="equipment-slot equipment-${cell.key}" aria-label="${escapeAttr(label)}">${content}</div>`;
     }
+    const actionSlot = cell.actionSlot || cell.slot;
     const selectedClass = selectedEquipment[cell.slot] === item?.id ? " selected-equipment" : "";
+    const fallbackReason = equipmentFallbackReasons[cell.slot] || "";
+    const fallbackClass = fallbackReason ? " priority-fallback-equipment" : "";
+    const fallbackAttrs = fallbackReason ? ` title="${escapeAttr(fallbackReason)}"` : "";
+    const ariaLabel = fallbackReason ? `${label}. ${fallbackReason}` : label;
     const itemId = item ? ` data-item-id="${escapeAttr(item.id)}"` : "";
-    return `<button class="equipment-slot equipment-${cell.key}${selectedClass}" type="button" data-slot="${escapeAttr(cell.slot)}"${itemId} aria-label="${escapeAttr(label)}">${content}</button>`;
+    return `<button class="equipment-slot equipment-${cell.key}${selectedClass}${fallbackClass}" type="button" data-slot="${escapeAttr(actionSlot)}"${itemId} aria-label="${escapeAttr(ariaLabel)}"${fallbackAttrs}>${content}</button>`;
   }).join("");
   clearEquipmentHover();
   return equipment;
@@ -1124,10 +1241,7 @@ function buildEquipmentSummaryPills(totals) {
   for (const key of ["physical", "fire", "ice", "energy", "earth", "holy", "death"]) {
     const attack = toNumber(totals.attackParts[key], 0);
     if (attack) {
-      pills.push({
-        text: `${prettyStat(key)} Atk ${attack}`,
-        iconUrl: damageTypeIcons[key],
-      });
+      pills.push(buildElementalAttackPill(key, attack));
     }
   }
   addPlain("Arm", totals.armor);
@@ -1163,7 +1277,9 @@ function renderSummaryPill(pill) {
   const icon = pill.iconUrl
     ? `<img class="summary-icon" src="${escapeAttr(pill.iconUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
     : "";
-  return `<span class="summary-pill">${icon}${escapeHtml(pill.text || "")}</span>`;
+  const label = pill.label || pill.title || pill.text || "";
+  const title = label ? ` title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}"` : "";
+  return `<span class="summary-pill"${title}>${icon}${escapeHtml(pill.text || "")}</span>`;
 }
 
 function handleEquipmentPreviewClick(event) {
@@ -1183,18 +1299,26 @@ function handleEquipmentPreviewClick(event) {
 }
 
 function getPreviewEquipment(priorityKey) {
-  const previewSlots = ["amulet", "helmet", "ammo", "weapon", "armor", "shield", "ring", "legs", "boots"];
+  const previewSlots = ["amulet", "helmet", "extra", "weapon", "armor", "shield", "ring", "legs", "boots"];
   const equipment = {};
+  equipmentFallbackReasons = {};
   for (const slot of previewSlots) {
     if (!shouldShowPreviewSlot(slot)) continue;
+    const effectiveSlot = getEffectiveFilterSlot(slot);
     const filtered = getFiltered(slot);
-    const selected = filtered.find(item => item.id === selectedEquipment[slot]);
+    const selected = filtered.find(item => item.id === selectedEquipment[effectiveSlot]);
     if (selected) {
-      equipment[slot] = selected;
+      equipment[effectiveSlot] = selected;
       continue;
     }
-    const { ranked } = getRankedForSlot(filtered, priorityKey, 1);
-    if (ranked[0]) equipment[slot] = ranked[0];
+    const { ranked, hasPriorityMatch } = getRankedForSlot(filtered, priorityKey, 1);
+    if (ranked[0]) {
+      equipment[effectiveSlot] = ranked[0];
+      const fallbackReason = hasPriorityMatch
+        ? getItemFallbackReason(ranked[0], slot, priorityKey, hasPriorityMatch)
+        : `No ${getDisplaySlotLabel(slot).toLowerCase()} matched ${priorities[priorityKey]?.label.toLowerCase() || "that"} priority, so this is ranked by balanced stats.`;
+      if (fallbackReason) equipmentFallbackReasons[effectiveSlot] = fallbackReason;
+    }
   }
   return equipment;
 }
@@ -1206,9 +1330,7 @@ function pickRandomBackpack() {
 }
 
 function shouldShowPreviewSlot(slot) {
-  const weaponType = getSelectedWeaponType();
-  if (slot === "ammo") return weaponType === "bow" || weaponType === "crossbow";
-  if (slot === "shield") return getSelectedHandMode() !== "2";
+  if (slot === "shield") return getOffHandSlot() === "ammo" || getSelectedHandMode() !== "2";
   return true;
 }
 
@@ -1222,23 +1344,20 @@ function renderFullSet(priorityKey, resultLimit) {
 }
 
 function getFullSetSlots() {
-  const weaponType = getSelectedWeaponType();
   const slots = ["weapon"];
 
-  if (weaponType === "bow" || weaponType === "crossbow") {
-    slots.push("ammo");
-  } else if (getSelectedHandMode() !== "2") {
+  if (getOffHandSlot() === "ammo" || getSelectedHandMode() !== "2") {
     slots.push("shield");
   }
 
-  slots.push("amulet", "helmet", "armor", "legs", "boots", "ring");
+  slots.push("amulet", "helmet", "armor", "legs", "boots", "ring", "extra");
   return slots;
 }
 
 function getRankedForSlot(sourceItems, priorityKey, limit) {
   const vocation = els.vocation.value;
   const checker = priorityChecks[priorityKey] || priorityChecks.balanced;
-  const priorityIsAlwaysUseful = priorityKey === "balanced" || priorityKey === "light";
+  const priorityIsAlwaysUseful = isAlwaysUsefulPriority(priorityKey);
   const priorityMatches = priorityIsAlwaysUseful ? sourceItems : sourceItems.filter(item => checker(item, vocation));
 
   if (priorityMatches.length > 0) {
@@ -1255,36 +1374,62 @@ function getRankedForSlot(sourceItems, priorityKey, limit) {
   }
 
   return {
-    ranked: rankItems(sourceItems, "balanced", vocation).slice(0, Math.max(0, limit - 1)),
+    ranked: rankItems(sourceItems, "balanced", vocation).slice(0, limit),
     hasPriorityMatch: false,
   };
 }
 
 function renderSlot(slot, ranked, compact, priorityKey, hasPriorityMatch) {
   const sectionId = getSlotSectionId(slot);
+  const effectiveSlot = getEffectiveFilterSlot(slot);
+  const hasManualSelection = !!selectedEquipment[effectiveSlot];
   const collapsed = collapsedSlots.has(slot);
   const title = renderSlotTitle(slot, collapsed);
   if (ranked.length === 0 && hasPriorityMatch) {
-    const body = collapsed ? "" : `<p class="empty">No usable ${slotLabels[slot].toLowerCase()} found for these filters.</p>`;
+    const body = collapsed ? "" : `<p class="empty">No usable ${getDisplaySlotLabel(slot).toLowerCase()} found for these filters.</p>`;
+    return `<article id="${sectionId}" class="slot-group${collapsed ? " collapsed" : ""}">${title}${body}</article>`;
+  }
+
+  if (ranked.length === 0) {
+    const unavailableCard = hasPriorityMatch
+      ? ""
+      : renderUnavailablePriorityCard(slot, priorityKey, compact);
+    const body = collapsed ? "" : `<div class="card-grid">${unavailableCard}</div>`;
     return `<article id="${sectionId}" class="slot-group${collapsed ? " collapsed" : ""}">${title}${body}</article>`;
   }
 
   const unavailableCard = hasPriorityMatch
     ? ""
     : renderUnavailablePriorityCard(slot, priorityKey, compact);
-
-  if (ranked.length === 0) {
-    const body = collapsed ? "" : `<div class="card-grid">${unavailableCard}</div>`;
-    return `<article id="${sectionId}" class="slot-group${collapsed ? " collapsed" : ""}">${title}${body}</article>`;
-  }
-
-  const cards = ranked.map((item, index) => renderItemCard(item, hasPriorityMatch ? index : index + 1, compact)).join("");
+  const fallbackReason = hasPriorityMatch || hasManualSelection
+    ? ""
+    : `No ${getDisplaySlotLabel(slot).toLowerCase()} matched ${priorities[priorityKey]?.label.toLowerCase() || "that"} priority, so this is ranked by balanced stats.`;
+  const cards = ranked.map((item, index) => {
+    const itemFallbackReason = hasPriorityMatch
+      ? ""
+      : index === 0 ? fallbackReason : "";
+    const cardIndex = hasPriorityMatch ? index : index + 1;
+    return renderItemCard(item, cardIndex, compact, { fallbackReason: itemFallbackReason });
+  }).join("");
   const body = collapsed ? "" : `<div class="card-grid">${unavailableCard}${cards}</div>`;
   return `<article id="${sectionId}" class="slot-group${collapsed ? " collapsed" : ""}">${title}${body}</article>`;
 }
 
+function getItemFallbackReason(item, slot, priorityKey, hasPriorityMatch) {
+  if (!hasPriorityMatch || isAlwaysUsefulPriority(priorityKey)) return "";
+  const checker = priorityChecks[priorityKey] || priorityChecks.balanced;
+  if (checker(item, els.vocation.value)) return "";
+  const slotLabel = getDisplaySlotLabel(slot).toLowerCase();
+  const priorityLabel = priorities[priorityKey]?.label.toLowerCase() || "selected";
+  return `This ${slotLabel} does not match ${priorityLabel} priority, so it was added as a balanced fallback.`;
+}
+
+function isAlwaysUsefulPriority(priorityKey) {
+  return priorityKey === "balanced" || priorityKey === "light";
+}
+
 function renderSlotTitle(slot, collapsed) {
-  const label = slotLabels[slot];
+  const label = getDisplaySlotLabel(slot);
   const icon = collapsed ? "+" : "-";
   const action = collapsed ? "Expand" : "Minimise";
   return `
@@ -1300,7 +1445,7 @@ function getSlotSectionId(slot) {
 
 function renderUnavailablePriorityCard(slot, priorityKey, compact) {
   const priorityLabel = priorities[priorityKey]?.label || "that priority";
-  const slotLabel = slotLabels[slot].toLowerCase();
+  const slotLabel = getDisplaySlotLabel(slot).toLowerCase();
   const fallbackText = compact
     ? "Showing balanced picks next."
     : "The recommendations after this use the balanced formula instead, so the slot is still useful.";
@@ -1314,20 +1459,27 @@ function renderUnavailablePriorityCard(slot, priorityKey, compact) {
     </article>`;
 }
 
-function renderItemCard(item, index, compact) {
+function renderItemCard(item, index, compact, options = {}) {
   const stats = buildStats(item);
   const drops = shouldShowDropSources() ? renderDropSources(item) : "";
   const imageUrl = safeImageUrl(item.imageUrl);
   const wikiUrl = safeWikiUrl(item.wikiUrl);
   const isSelected = selectedEquipment[item.slot] === item.id;
+  const fallbackReason = options.fallbackReason || "";
   const meta = [
     item.type ? titleCase(item.type) : titleCase(item.slot),
     `Level ${item.level || "none"}`,
     item.vocations.length ? item.vocations.map(titleCase).join(", ") : "Any vocation",
   ].join(" • ");
-  const image = imageUrl ? `<img class="item-image" src="${escapeAttr(imageUrl)}" alt="${escapeAttr(item.name)}" loading="lazy" referrerpolicy="no-referrer">` : `<div class="item-image placeholder" aria-hidden="true">?</div>`;
+  const fallbackAttrs = fallbackReason ? ` title="${escapeAttr(fallbackReason)}" aria-label="${escapeAttr(fallbackReason)}"` : "";
+  const fallbackClass = fallbackReason ? " priority-fallback-image" : "";
+  const fallbackCardClass = fallbackReason ? " priority-fallback-card" : "";
+  const fallbackCardAttrs = fallbackReason ? ` title="${escapeAttr(fallbackReason)}"` : "";
+  const image = imageUrl
+    ? `<img class="item-image${fallbackClass}" src="${escapeAttr(imageUrl)}" alt="${escapeAttr(item.name)}" loading="lazy" referrerpolicy="no-referrer"${fallbackAttrs}>`
+    : `<div class="item-image placeholder${fallbackClass}" aria-hidden="true"${fallbackAttrs}>?</div>`;
   return `
-    <article class="item-card ${index === 0 ? "best" : ""} ${isSelected ? "selected" : ""}" data-item-id="${escapeAttr(item.id)}">
+    <article class="item-card ${index === 0 ? "best" : ""} ${isSelected ? "selected" : ""}${fallbackCardClass}" data-item-id="${escapeAttr(item.id)}"${fallbackCardAttrs}>
       <div class="item-card-head">${image}<div><h3>${index === 0 ? "★ " : ""}${escapeHtml(item.name)}</h3><div class="meta">${escapeHtml(meta)}</div></div></div>
       <div class="stats">${stats.map(renderStatPill).join("")}</div>
       ${drops ? `<p class="reason">${drops}</p>` : ""}
@@ -1361,7 +1513,10 @@ function renderStatPill(stat) {
   const icon = stat.iconUrl
     ? `<img class="stat-icon" src="${escapeAttr(stat.iconUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
     : "";
-  return `<span class="pill stat-pill">${icon}${escapeHtml(stat.text || "")}</span>`;
+  const label = stat.label || stat.title || stat.text || "";
+  const title = label ? ` title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}"` : "";
+  const iconOnlyClass = stat.iconUrl && !stat.text ? " icon-only-pill" : "";
+  return `<span class="pill stat-pill${iconOnlyClass}"${title}>${icon}${escapeHtml(stat.text || "")}</span>`;
 }
 
 function buildStats(item) {
@@ -1375,8 +1530,10 @@ function buildStats(item) {
   if (item.range) out.push(`Range ${item.range}`);
   if (item.hitPercent) out.push(`Hit ${fmtSigned(item.hitPercent)}%`);
   if (item.shotDamageAverage) out.push(`Damage ${item.damageMin}-${item.damageMax}`);
-  if (item.damageType && !item.attack && !(item.damageParts || []).length) out.push(titleCase(item.damageType));
+  if (item.damageType && !item.attack && !(item.damageParts || []).length) out.push(buildElementalAttackPill(item.damageType));
   if (item.manaPerShot) out.push(`Mana ${item.manaPerShot}`);
+  if (item.duration) out.push(`Duration ${item.duration}`);
+  if (item.charges) out.push(`${item.charges} charge${item.charges === 1 ? "" : "s"}`);
   if (item.imbuementSlots) out.push(`${item.imbuementSlots} imbue slot${item.imbuementSlots === 1 ? "" : "s"}`);
   if (item.weight) out.push(`Weight ${item.weight}`);
 
@@ -1394,22 +1551,27 @@ function buildStats(item) {
 function addAttackStats(out, item) {
   if (Array.isArray(item.damageParts) && item.damageParts.length) {
     for (const part of item.damageParts) {
-      out.push({
-        text: `${prettyStat(part.type)} Atk ${part.amount}`,
-        iconUrl: part.iconUrl || damageTypeIcons[part.type],
-      });
+      out.push(buildElementalAttackPill(part.type, part.amount, part.iconUrl));
     }
   } else if (item.attack) {
     if (item.damageType) {
-      out.push({
-        text: `${prettyStat(item.damageType)} Atk ${item.attack}`,
-        iconUrl: damageTypeIcons[item.damageType],
-      });
+      out.push(buildElementalAttackPill(item.damageType, item.attack));
     } else {
       out.push(`Atk ${item.attack}`);
     }
   }
   if (item.attackMod) out.push(`Atk mod ${fmtSigned(item.attackMod)}`);
+}
+
+function buildElementalAttackPill(type, value = 0, iconUrl = "") {
+  const key = cleanKey(type || "");
+  const n = toNumber(value, 0);
+  const label = `${prettyStat(key || "elemental")} attack${n ? ` ${n}` : ""}`;
+  return {
+    text: n ? `Atk ${n}` : "",
+    iconUrl: iconUrl || damageTypeIcons[key],
+    label,
+  };
 }
 
 function fmtSigned(value) {
@@ -1437,13 +1599,14 @@ function escapeAttr(value) {
 function safeImageUrl(value) {
   const url = safeHttpUrl(value);
   if (!url) return "";
-  return url.hostname === "static.wikia.nocookie.net" ? url.href : "";
+  return url.hostname === "static.wikia.nocookie.net" || url.hostname === "www.tibiawiki.com.br" ? url.href : "";
 }
 
 function safeWikiUrl(value) {
   const url = safeHttpUrl(value);
   if (!url) return "";
-  return url.hostname === "tibia.fandom.com" && url.pathname.startsWith("/wiki/") ? url.href : "";
+  const allowedHost = url.hostname === "tibia.fandom.com" || url.hostname === "www.tibiawiki.com.br";
+  return allowedHost && url.pathname.startsWith("/wiki/") ? url.href : "";
 }
 
 function safeHttpUrl(value) {
@@ -1496,6 +1659,7 @@ function buildFinderState(equipment, settings) {
     resultLimit: getSelectedResultLimit(),
     weaponType: els.weaponType?.value || "",
     twoHanded: !!els.twoHanded?.checked,
+    prioritizeVocation: shouldPrioritizeVocationEquipment(),
     showDrops: els.showDrops?.checked !== false,
     savedAt: new Date().toISOString(),
   };
@@ -1522,7 +1686,7 @@ function restoreFinderState() {
   const selectedIds = storedSelectedIds || storedEquipmentIds;
   selectedEquipment = {};
   for (const [slot, id] of Object.entries(selectedIds)) {
-    if (slots.includes(slot) && items.some(item => item.id === id)) {
+    if ((slots.includes(slot) || slot === "ammo") && items.some(item => item.id === id)) {
       selectedEquipment[slot] = id;
     }
   }
@@ -1546,6 +1710,10 @@ function restoreFinderState() {
   if (typeof state.showDrops === "boolean") {
     els.showDrops.checked = state.showDrops;
   }
+
+  if (typeof state.prioritizeVocation === "boolean") {
+    els.prioritizeVocation.checked = state.prioritizeVocation;
+  }
 }
 
 function setControlValue(control, value) {
@@ -1566,7 +1734,11 @@ function handleResultClick(event) {
     if (!card || !els.results.contains(card)) return;
     const item = items.find(candidate => candidate.id === card.dataset.itemId);
     if (!item) return;
-    selectedEquipment[item.slot] = item.id;
+    if (selectedEquipment[item.slot] === item.id) {
+      delete selectedEquipment[item.slot];
+    } else {
+      selectedEquipment[item.slot] = item.id;
+    }
     render();
     return;
   }
@@ -1707,7 +1879,7 @@ const speedBreakpoints = [
 ];
 
 const movementMsByBreakpoint = [850, 800, 750, 700, 650, 600, 550, 500, 450, 400, 350, 300, 250, 200, 150, 100, 50];
-const speedManualSlots = ["boots", "armor", "legs", "shield", "ring", "amulet"];
+const speedManualSlots = ["boots", "armor", "legs", "shield", "extra", "ring", "amulet"];
 const speedTemporaryBoostOptions = [
   { id: "", label: "None", percent: 0 },
   { id: "haste", label: "Haste (Utani Hur)", type: "spell", percent: 30 },

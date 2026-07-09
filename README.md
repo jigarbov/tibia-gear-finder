@@ -14,7 +14,7 @@ The included data is only a small starter/sample dataset. Run the scraper to rep
 
 Current scrape sources:
 
-- Equipment tables: `https://tibia.fandom.com/wiki/Bows`, `Crossbows`, `Sword_Weapons`, `Axe_Weapons`, `Club_Weapons`, `Wands`, `Rods`, `Fist_Fighting_Weapons`, `Throwing_Weapons`, `Ammunition`, `Helmets`, `Armors`, `Legs`, `Boots`, `Shields`, `Spellbooks`, `Rings`, `Amulets_and_Necklaces`, and `Backpacks`.
+- Equipment tables: `https://tibia.fandom.com/wiki/Bows`, `Crossbows`, `Sword_Weapons`, `Axe_Weapons`, `Club_Weapons`, `Wands`, `Rods`, `Fist_Fighting_Weapons`, `Throwing_Weapons`, `Ammunition`, `Helmets`, `Armors`, `Legs`, `Boots`, `Shields`, `Spellbooks`, `Rings`, `Amulets_and_Necklaces`, and `Backpacks`, plus `https://www.tibiawiki.com.br/wiki/Extra_Slot` for extra-slot tools.
 - Quest list: `https://tibia.fandom.com/wiki/Quests`.
 - Achievement spoilers: `https://tibia.fandom.com/wiki/Achievements/Spoiler`.
 
@@ -217,12 +217,12 @@ Examples:
 
 ## Latest UI/ranking changes
 
-- Full-set order is Weapon, Off-hand/Ammunition, Helmet, Armor, Legs, Boots.
+- Full-set order is Weapon, Off-hand, Amulet, Helmet, Armor, Legs, Boots, Ring, Extra. Off-hand resolves to ammunition for bows/crossbows.
 - The old Data/Load JSON panel has been removed; the app automatically loads `data/items.js` relative to `index.html`.
 - Weapon type choices are vocation-aware and reset to a sensible default when changing vocation.
 - The hand setup is now a simple unchecked = one-handed, checked = two-handed toggle. One-handed is the default.
 - Two-handed mode hides the off-hand slot.
-- Bow/Crossbow mode shows Ammunition instead of Off-hand.
+- Bow/Crossbow mode shows Ammunition in the Off-hand position. The old standalone Ammunition slot is now Extra.
 - Attack skill bonuses are tied to the selected weapon type. For example, if Axe is selected, sword-only and club-only helmets/armor no longer count as valid attack results.
 - Hide controls on item cards are now icon buttons: eye = hide for this search, trash = hide permanently.
 

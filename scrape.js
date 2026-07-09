@@ -12,10 +12,12 @@ const EXPORT_FILES = [
   ["app.js", path.join(EXPORT_DIR, "app.js")],
   ["achievement-tracker.js", path.join(EXPORT_DIR, "achievement-tracker.js")],
   ["quest-suggester.js", path.join(EXPORT_DIR, "quest-suggester.js")],
+  ["wheel-planner.js", path.join(EXPORT_DIR, "wheel-planner.js")],
   ["achievement-tracker.html", path.join(EXPORT_DIR, "achievement-tracker.html")],
   ["index.html", path.join(EXPORT_DIR, "index.html")],
   ["quest-suggester.html", path.join(EXPORT_DIR, "quest-suggester.html")],
   ["speed-breakpoint.html", path.join(EXPORT_DIR, "speed-breakpoint.html")],
+  ["wheel-planner.html", path.join(EXPORT_DIR, "wheel-planner.html")],
   ["styles.css", path.join(EXPORT_DIR, "styles.css")],
   [JS_OUT, path.join(EXPORT_DATA_DIR, "items.js")],
   [path.join(OUT_DIR, "quests.js"), path.join(EXPORT_DATA_DIR, "quests.js")],
@@ -24,6 +26,7 @@ const EXPORT_FILES = [
 const CACHE_DIR = path.resolve("cache");
 const BASE = "https://tibia.fandom.com";
 const API = `${BASE}/api.php`;
+const TIBIAWIKI_BR_BASE = "https://www.tibiawiki.com.br";
 
 const pages = [
   { url: `${BASE}/wiki/Bows`, slot: "weapon", type: "bow" },
@@ -46,6 +49,7 @@ const pages = [
   { url: `${BASE}/wiki/Spellbooks`, slot: "shield", type: "spellbook" },
   { url: `${BASE}/wiki/Rings`, slot: "ring" },
   { url: `${BASE}/wiki/Amulets_and_Necklaces`, slot: "amulet" },
+  { url: `${TIBIAWIKI_BR_BASE}/wiki/Extra_Slot`, slot: "extra", type: "extra", parser: "extraSlot", cacheName: "Extra_Slot", base: TIBIAWIKI_BR_BASE },
   { url: `${BASE}/wiki/Backpacks`, slot: "backpack", optional: true }
 ];
 
@@ -90,6 +94,9 @@ const headerAliases = new Map([
   ["mana-shot", "manaPerShot"],
   ["weight", "weight"],
   ["oz", "weight"],
+  ["duration", "duration"],
+  ["charges", "charges"],
+  ["charge", "charges"],
   ["imbuement-slots", "imbuementSlots"],
   ["imb-slots", "imbuementSlots"],
   ["imb-slots.", "imbuementSlots"],
@@ -137,7 +144,8 @@ async function syncExportFiles() {
 }
 
 async function fetchPageHtml(page) {
-  const pageName = page.url.replace(`${BASE}/wiki/`, "");
+  const pageBase = page.base || BASE;
+  const pageName = page.cacheName || page.url.replace(`${pageBase}/wiki/`, "");
   const cachePath = path.join(CACHE_DIR, `${pageName.replace(/[^a-z0-9_-]/gi, "_")}.html`);
 
   try {
@@ -148,7 +156,8 @@ async function fetchPageHtml(page) {
   }
 
   try {
-    let html = await fetchViaMediaWikiApi(pageName);
+    let html = pageBase === BASE ? await fetchViaMediaWikiApi(pageName) : "";
+    if (!html) throw new Error("MediaWiki API not configured for this source");
     const redirectTarget = extractRedirectTarget(html);
     if (redirectTarget) {
       console.warn(`  API returned redirect stub; following ${redirectTarget}`);
@@ -231,6 +240,8 @@ function browserHeaders() {
 }
 
 function parsePage(html, page) {
+  if (page.parser === "extraSlot") return parseExtraSlotPage(html, page);
+
   const $ = load(html);
   const items = [];
 
@@ -259,7 +270,7 @@ function parsePage(html, page) {
         if (!text && key !== "name" && key !== "damageType" && key !== "droppedBy") return;
 
         if (key === "name") {
-          const nameData = extractNameCell($, cell);
+          const nameData = extractNameCell($, cell, page.base || BASE);
           raw.name = nameData.name || text;
           if (nameData.wikiUrl) raw.wikiUrl = nameData.wikiUrl;
           return;
@@ -311,6 +322,8 @@ function parsePage(html, page) {
         shotDamageAverage: damage.average,
         manaPerShot: toNumber(raw.manaPerShot, 0),
         weight: toNumber(raw.weight, 0),
+        duration: cleanText(raw.duration || ""),
+        charges: toNumber(raw.charges, 0),
         imbuementSlots: toNumber(raw.imbuementSlots, 0),
         classification: toNumber(raw.classification, 0),
         attributes: parseAttributes(attributesText),
@@ -327,6 +340,68 @@ function parsePage(html, page) {
       }
       items.push(item);
     });
+  });
+
+  return items;
+}
+
+function parseExtraSlotPage(html, page) {
+  const $ = load(html);
+  const items = [];
+
+  $("table[width='100%']").each((_, table) => {
+    const row = $(table).children("tbody").children("tr").first();
+    const cells = row.children("td").toArray();
+    if (cells.length !== 5) return;
+
+    const nameCell = cells[0];
+    const imageCell = cells[1];
+    const attributesCell = cells[2];
+    const weightCell = cells[3];
+    const droppedByCell = cells[4];
+    const nameData = extractNameCell($, nameCell, page.base || BASE);
+    const name = cleanName(nameData.name || $(nameCell).text());
+    if (!name || /^(nome|name)$/i.test(name)) return;
+
+    const attributesText = cleanText($(attributesCell).text());
+    const item = {
+      name,
+      slot: page.slot,
+      ...(page.type ? { type: page.type } : {}),
+      level: 0,
+      vocations: [],
+      armor: parseArmor(attributesText),
+      attack: 0,
+      damageParts: [],
+      defense: 0,
+      defenseMod: 0,
+      hands: "",
+      attackMod: 0,
+      range: 0,
+      hitPercent: 0,
+      ammoType: "",
+      damageType: "",
+      damageMin: 0,
+      damageMax: 0,
+      shotDamageAverage: 0,
+      manaPerShot: 0,
+      weight: toNumber($(weightCell).text(), 0),
+      duration: "",
+      charges: 0,
+      imbuementSlots: 0,
+      classification: 0,
+      attributes: parseAttributes(attributesText),
+      resistances: parseResistances(attributesText),
+      droppedBy: extractDroppedBy($, droppedByCell, page.base),
+      imageUrl: makeAbsoluteUrl(extractImageUrl($, imageCell), page.base),
+      wikiUrl: makeAbsoluteUrl(nameData.wikiUrl || `/wiki/${encodeURIComponent(name.replaceAll(" ", "_"))}`, page.base),
+      sourcePage: page.url
+    };
+
+    if (!item.weight && !item.armor && !Object.keys(item.attributes).length && !Object.keys(item.resistances).length) {
+      return;
+    }
+    items.push(item);
   });
 
   return items;
@@ -353,6 +428,8 @@ function findHeaderRow($, rows) {
         "damageType",
         "manaPerShot",
         "weight",
+        "duration",
+        "charges",
         "imbuementSlots",
         "classification",
         "attributesText",
@@ -409,7 +486,7 @@ function extractImageUrl($, cell) {
   return raw.replace(/&amp;/g, "&");
 }
 
-function extractNameCell($, cell) {
+function extractNameCell($, cell, base = BASE) {
   const links = $(cell).find("a").toArray();
 
   for (const link of links) {
@@ -421,7 +498,7 @@ function extractNameCell($, cell) {
     if (isWikiArticle && title && !isImage) {
       return {
         name: title,
-        wikiUrl: href.startsWith("http") ? href : `${BASE}${href}`
+        wikiUrl: makeAbsoluteUrl(href, base)
       };
     }
   }
@@ -429,7 +506,7 @@ function extractNameCell($, cell) {
   return { name: cleanText($(cell).text()), wikiUrl: "" };
 }
 
-function extractDroppedBy($, cell) {
+function extractDroppedBy($, cell, base = BASE) {
   const seen = new Set();
   const creatures = [];
 
@@ -443,7 +520,7 @@ function extractDroppedBy($, cell) {
     seen.add(title);
     creatures.push({
       name: title,
-      wikiUrl: href.startsWith("http") ? href : `${BASE}${href}`
+      wikiUrl: makeAbsoluteUrl(href, base)
     });
   });
 
@@ -525,6 +602,19 @@ function toNumber(value, fallback = 0) {
   return match ? Number(match[0]) : fallback;
 }
 
+function parseArmor(value) {
+  const match = cleanText(value).match(/\barm(?:or)?\s*:\s*(-?\d+)/i);
+  return match ? Number(match[1]) : 0;
+}
+
+function makeAbsoluteUrl(value, base = BASE) {
+  if (!value) return "";
+  try {
+    return new URL(String(value).replace(/&amp;/g, "&"), base).href;
+  } catch {
+    return "";
+  }
+}
 
 function parseDamageRange(value) {
   const text = cleanText(value);
@@ -559,7 +649,7 @@ function parseAttributes(text) {
   const source = cleanText(text).toLowerCase();
   const attrs = {};
   const patterns = [
-    ["distance", /(?:distance fighting|distance|dist\.?)\s*\+?(-?\d+)/i],
+    ["distance", /(?:distance fighting|distance level|distance|dist\.?)\s*\+?(-?\d+)/i],
     ["magicLevel", /(?:magic level|magic lvl|ml)\s*\+?(-?\d+)/i],
     ["sword", /sword(?: fighting)?\s*\+?(-?\d+)/i],
     ["axe", /axe(?: fighting)?\s*\+?(-?\d+)/i],

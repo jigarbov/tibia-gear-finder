@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
   <title>Tibia Gear Finder</title>
-  <link rel="stylesheet" href="styles.css?v=20260708-16">
+  <link rel="stylesheet" href="styles.css?v=20260709-4">
 </head>
 <body>
   <main class="shell">
@@ -14,7 +14,7 @@
       <a class="site-nav-link" href="speed-breakpoint.html">Speed Breakpoint Calculator</a>
       <a class="site-nav-link" href="quest-suggester.html">Quest Suggest...er <span class="beta-tag">Beta</span></a>
       <a class="site-nav-link" href="achievement-tracker.html">Achievement Tracker <span class="beta-tag">Beta</span></a>
-      <a class="site-nav-link" href="wheel-planner.html">Wheel Planner <span class="beta-tag">Beta</span></a>
+      <a class="site-nav-link" href="wheel-planner.html">Wheel Maxxer <span class="beta-tag">Beta</span></a>
     </nav>
 
     <div class="top-grid">
@@ -62,6 +62,14 @@
         <label class="priority-label">
           Priority
           <select id="priority"></select>
+        </label>
+
+        <label class="checkbox-label prefer-vocation-label">
+          Vocation gear
+          <span class="toggle-row">
+            <input id="prioritizeVocation" type="checkbox" checked>
+            <span>Prefer</span>
+          </span>
         </label>
 
         <label class="weapon-type-label">
@@ -116,7 +124,7 @@
     </section>
   </main>
 
-  <script src="data/items.js?v=20260703-1"></script>
-  <script src="app.js?v=20260706-11"></script>
+  <script src="data/items.js?v=20260709-4"></script>
+  <script src="app.js?v=20260709-16"></script>
 </body>
 </html>

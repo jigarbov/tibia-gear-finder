@@ -154,6 +154,10 @@ button.equipment-slot:focus-visible {
   border-color: rgba(125,190,255,.85);
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.34), 0 0 0 2px rgba(125,190,255,.22);
 }
+.equipment-slot.priority-fallback-equipment {
+  border-color: rgba(125,190,255,.85);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.34), 0 0 0 2px rgba(125,190,255,.22);
+}
 .equipment-hover-card {
   display: block;
   border: 1px solid rgba(255,255,255,.14);
@@ -276,6 +280,7 @@ button.equipment-slot:focus-visible {
 .result-limit-label { flex-basis: 146px; }
 .mode-label { flex-basis: 170px; }
 .priority-label { flex-basis: 150px; }
+.prefer-vocation-label { flex-basis: 138px; }
 .weapon-type-label { flex-basis: 136px; }
 .checkbox-label { flex-basis: 138px; }
 .controls::after {
@@ -458,6 +463,10 @@ code {
   border-color: rgba(125,190,255,.78);
   box-shadow: 0 0 0 2px rgba(125,190,255,.18);
 }
+.item-card.priority-fallback-card {
+  border-color: rgba(125,190,255,.78);
+  box-shadow: 0 0 0 2px rgba(125,190,255,.18);
+}
 .meta {
   color: var(--muted);
   font-size: 12px;
@@ -482,11 +491,20 @@ code {
   align-items: center;
   gap: 5px;
 }
+.icon-only-pill {
+  justify-content: center;
+  min-width: 28px;
+  padding-inline: 7px;
+}
 .stat-icon {
   width: 12px;
   height: 12px;
   image-rendering: pixelated;
   object-fit: contain;
+}
+.icon-only-pill .stat-icon {
+  width: 14px;
+  height: 14px;
 }
 .reason { color: var(--muted); line-height: 1.45; margin-bottom: 12px; }
 a { color: var(--accent); text-decoration: none; font-weight: 800; }
@@ -518,8 +536,9 @@ a { color: var(--accent); text-decoration: none; font-weight: 800; }
       "vocation level"
       "limit limit"
       "mode slot"
-      "priority weapon"
-      "hand drops";
+      "priority vocationGear"
+      "weapon hand"
+      "drops drops";
     width: 100%;
   }
   .level-label,
@@ -535,6 +554,7 @@ a { color: var(--accent); text-decoration: none; font-weight: 800; }
   .mode-label { grid-area: mode; }
   .slot-label { grid-area: slot; }
   .priority-label { grid-area: priority; }
+  .prefer-vocation-label { grid-area: vocationGear; }
   .weapon-type-label { grid-area: weapon; }
   #handLabel { grid-area: hand; }
   .show-drops-label { grid-area: drops; }
@@ -551,6 +571,7 @@ a { color: var(--accent); text-decoration: none; font-weight: 800; }
       "mode"
       "slot"
       "priority"
+      "vocationGear"
       "weapon"
       "hand"
       "drops";
@@ -664,6 +685,10 @@ a { color: var(--accent); text-decoration: none; font-weight: 800; }
   border-radius: 12px;
   background: rgba(0,0,0,.18);
   padding: 5px;
+}
+.priority-fallback-image {
+  border-color: rgba(125,190,255,.78);
+  box-shadow: 0 0 0 2px rgba(125,190,255,.18);
 }
 .item-image.placeholder {
   display: grid;
