@@ -98,7 +98,15 @@ const defaultWeaponTypes = {
 const priorities = {
   balanced: {
     label: "Balanced",
-    rules: (vocation, slot) => slot === "armor"
+    rules: (vocation, slot) => slot === "ring"
+      ? [
+          ["balancedWearableScore", "desc"],
+          ["vocationDamageBoost", "desc"],
+          ["effectivePhysicalDefense", "desc"],
+          ["totalResistance", "desc"],
+          ["weight", "asc"],
+        ]
+      : slot === "armor"
       ? [
           ["balancedArmorScore", "desc"],
           ["effectivePhysicalDefense", "desc"],
@@ -790,8 +798,18 @@ function getBalancedWearableScore(item, vocation) {
   const secondaryBoost = getSecondaryGearBoost(item, vocation);
   const shielding = toNumber(item.attributes?.shielding, 0);
   const weight = toNumber(item.weight, 0);
-  const offenseWeight = vocation === "paladin" ? 5 : 4;
-  const resistanceWeight = vocation === "paladin" ? 0.45 : 0.6;
+  const isAmulet = item.slot === "amulet";
+  const isRing = item.slot === "ring";
+  const offenseWeight = isAmulet
+    ? vocation === "paladin" || vocation === "monk" ? 6 : 5
+    : isRing
+      ? 4
+    : vocation === "paladin" ? 5 : 4;
+  const resistanceWeight = isAmulet
+    ? 0.3
+    : isRing
+      ? 0.85
+    : vocation === "paladin" ? 0.45 : 0.6;
   const chargePenalty = getLimitedChargePenalty(item);
 
   return physicalDefense
@@ -857,10 +875,22 @@ function getSecondaryGearBoost(item, vocation) {
 
 function getVocationEquipmentPriority(item, vocation) {
   if (!vocation) return 0;
-  if (item.vocations?.includes(vocation)) return 3;
-  if (getVocationDamageBoost(item, vocation) > 0) return 2;
-  if (getSecondaryGearBoost(item, vocation) > 0) return 1;
+  const damageBoost = getVocationDamageBoost(item, vocation);
+  const secondaryBoost = getSecondaryGearBoost(item, vocation);
+  if (damageBoost > 0) return 3;
+  if (secondaryBoost > 0) return 2;
+  if (item.vocations?.includes(vocation) && hasMeaningfulGearStats(item)) return 1;
   return 0;
+}
+
+function hasMeaningfulGearStats(item) {
+  return getEffectivePhysicalDefense(item) > 0
+    || getGeneralResistanceTotal(item) !== 0
+    || getTotalAttack(item) > 0
+    || toNumber(item.attackMod, 0) !== 0
+    || toNumber(item.hitPercent, 0) !== 0
+    || toNumber(item.imbuementSlots, 0) > 0
+    || Object.values(item.attributes || {}).some(value => toNumber(value, 0) !== 0);
 }
 
 
