@@ -2027,11 +2027,11 @@ function getSelectedTemporaryBoostSpeed(baseSpeed) {
 }
 
 function getBaseCharacterSpeed(level) {
-  return 220 + (Math.max(1, level) - 1) * 2;
+  return 109 + Math.max(1, level);
 }
 
 function getEquivalentLevel(speed) {
-  return Math.max(1, Math.floor((toNumber(speed, 220) - 220) / 2) + 1);
+  return Math.max(1, Math.floor(toNumber(speed, 110) - 109));
 }
 
 function loadFinderEquipment() {
@@ -2165,7 +2165,7 @@ function getSpeedTableCellLabel(threshold, totalSpeed, showLevelDeltas, index, c
   if (!showLevelDeltas) return threshold.toLocaleString();
   if (index === currentIndex) return `<span class="checkmark" aria-label="Current breakpoint">✓</span>`;
   const speedGap = threshold - totalSpeed;
-  const levelGap = speedGap > 0 ? Math.ceil(speedGap / 2) : Math.floor(speedGap / 2);
+  const levelGap = speedGap > 0 ? Math.ceil(speedGap) : Math.floor(speedGap);
   return levelGap > 0 ? `+${levelGap.toLocaleString()}` : levelGap.toLocaleString();
 }
 
